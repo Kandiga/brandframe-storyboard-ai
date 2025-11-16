@@ -32,9 +32,10 @@ const allowedOrigins = [
 
 // Helper function to check if origin is a WebContainer domain
 const isWebContainerDomain = (origin: string): boolean => {
-  return origin.includes('.webcontainer-api.io') ||
-         origin.includes('.local-credentialless.webcontainer-api.io') ||
-         origin.includes('webcontainer');
+  return origin.includes('webcontainer-api.io') ||
+         origin.includes('webcontainer') ||
+         /\.local-credentialless\.webcontainer-api\.io/.test(origin) ||
+         /[a-z0-9-]+\.webcontainer-api\.io/.test(origin);
 };
 
 // Helper function to check if origin is a Netlify domain
@@ -51,37 +52,50 @@ export const corsMiddleware = cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) {
+      console.log('[CORS] Allowing request with no origin');
       return callback(null, true);
     }
 
+    console.log('[CORS] Checking origin:', origin);
+
     // Allow WebContainer domains (development environments like StackBlitz, WebContainers)
     if (isWebContainerDomain(origin)) {
-      console.log('[CORS] Allowing WebContainer domain:', origin);
+      console.log('[CORS] ✓ Allowing WebContainer domain:', origin);
       return callback(null, true);
     }
 
     // Allow localhost origins in development
-    if (isLocalhostDomain(origin) || allowedOrigins.includes(origin)) {
+    if (isLocalhostDomain(origin)) {
+      console.log('[CORS] ✓ Allowing localhost domain:', origin);
+      return callback(null, true);
+    }
+
+    // Allow explicitly configured origins
+    if (allowedOrigins.includes(origin)) {
+      console.log('[CORS] ✓ Allowing configured origin:', origin);
       return callback(null, true);
     }
 
     // Allow all Netlify domains in production
     if (isNetlifyDomain(origin)) {
+      console.log('[CORS] ✓ Allowing Netlify domain:', origin);
       return callback(null, true);
     }
 
     // Allow all origins in development mode
     if (process.env.NODE_ENV === 'development') {
+      console.log('[CORS] ✓ Allowing origin in development mode:', origin);
       return callback(null, true);
     }
 
     // Allow if explicitly set in ALLOWED_ORIGINS environment variable (comma-separated)
     const additionalOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
     if (additionalOrigins.includes(origin)) {
+      console.log('[CORS] ✓ Allowing additional origin:', origin);
       return callback(null, true);
     }
 
-    console.log('[CORS] Origin not allowed:', origin);
+    console.log('[CORS] ✗ Origin not allowed:', origin);
     callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
   },
   credentials: true,
