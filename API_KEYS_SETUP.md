@@ -1,8 +1,12 @@
-# API Keys Setup
+# API Keys Setup for Supabase Edge Functions
+
+## Architecture
+
+This application uses **Supabase Edge Functions** for all backend operations. The Edge Functions are already deployed and running on Supabase.
 
 ## Required API Keys
 
-This application requires two API keys to function:
+You need to add two API keys as **Supabase secrets**:
 
 ### 1. Gemini API Key
 Used for AI-powered storyboard generation.
@@ -25,43 +29,48 @@ Used for fetching trending shorts and video information.
 
 ## Setup Instructions
 
-### For bolt.new / WebContainer
+### Adding Secrets to Supabase
 
-1. Open the `.env` file in the root directory
-2. Replace `your_gemini_api_key_here` with your actual Gemini API key
-3. Replace `your_youtube_api_key_here` with your actual YouTube API key
+You need to add your API keys to Supabase as secrets:
 
-Example:
-```
-GEMINI_API_KEY=AIzaSyC...your-actual-key-here
-YOUTUBE_API_KEY=AIzaSyD...your-actual-key-here
-```
+1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project: `ykdlyaxpqxsmajclmput`
+3. Navigate to **Settings** → **Edge Functions** → **Secrets**
+4. Add the following secrets:
+
+   - **Name:** `GEMINI_API_KEY`
+     - **Value:** Your Gemini API key
+
+   - **Name:** `YOUTUBE_API_KEY`
+     - **Value:** Your YouTube Data API key
+
+5. Click "Add Secret" for each one
 
 ### Running the Application
 
-After adding your API keys:
+After adding your API keys to Supabase:
 
-1. Start both frontend and backend:
-```bash
-npm run dev:full
-```
-
-Or start them separately:
-
-**Terminal 1 (Backend):**
-```bash
-npm run server
-```
-
-**Terminal 2 (Frontend):**
+Simply start the frontend:
 ```bash
 npm run dev
 ```
 
+The application will automatically connect to the Supabase Edge Functions.
+
+## How It Works
+
+1. Frontend calls Supabase Edge Functions at:
+   - `https://ykdlyaxpqxsmajclmput.supabase.co/functions/v1/gemini-storyboard`
+   - `https://ykdlyaxpqxsmajclmput.supabase.co/functions/v1/youtube-api`
+
+2. Edge Functions use the secrets you configured in Supabase
+
+3. No local backend server needed - everything runs on Supabase!
+
 ## Important Notes
 
 - Never commit your API keys to version control
-- Keep your `.env` file private
-- The application will not work without valid API keys
-- The backend server runs on port 3002
-- The frontend runs on port 3000
+- API keys are stored securely in Supabase as secrets
+- Edge Functions are already deployed and active
+- The application uses Supabase authentication tokens
+- Everything is serverless and scales automatically

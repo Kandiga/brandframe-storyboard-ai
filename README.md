@@ -2,39 +2,52 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# BrandFrame Studio - AI-Powered Storyboard Generator
 
-This contains everything you need to run your app locally.
+This app uses **Supabase Edge Functions** for serverless backend operations.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1gKqQVYTsJMs8tbID6URtz9n7rP8WnEqD
 
-## Run Locally
+## Architecture
 
-**Prerequisites:**  
-- Node.js 18+ (for fetch API support in backend)
+- **Frontend:** React + Vite (bolt.new compatible)
+- **Backend:** Supabase Edge Functions (serverless)
+- **Database:** Supabase PostgreSQL
+- **AI:** Google Gemini API
+- **Video Data:** YouTube Data API v3
 
-### Frontend Only (without YouTube Shorts feature)
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Quick Start
 
-### Full Setup (with YouTube Shorts scraping)
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run both frontend and backend:
-   `npm run dev:full`
-   
-   Or run them separately:
-   - Frontend: `npm run dev` (runs on http://localhost:3000)
-   - Backend: `npm run server` (runs on http://localhost:3002)
+### 1. Setup API Keys
 
-### Backend Server
-The YouTube scraping backend server runs on port 3002 by default. You can configure the port by setting the `PORT` environment variable.
+You need to add your API keys to Supabase:
 
-**Note:** The YouTube Shorts scraping feature uses web scraping which may have limitations. For production use, consider integrating YouTube Data API v3 for more reliable access to trending videos.
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select project: `ykdlyaxpqxsmajclmput`
+3. Navigate to **Settings** → **Edge Functions** → **Secrets**
+4. Add these secrets:
+   - `GEMINI_API_KEY` - Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - `YOUTUBE_API_KEY` - Get from [Google Cloud Console](https://console.cloud.google.com/)
+
+See [API_KEYS_SETUP.md](API_KEYS_SETUP.md) for detailed instructions.
+
+### 2. Run the App
+
+```bash
+npm install
+npm run dev
+```
+
+That's it! The app will connect to Supabase Edge Functions automatically.
+
+## How It Works
+
+1. Frontend runs on port 3000
+2. All API calls go to Supabase Edge Functions:
+   - `/functions/v1/gemini-storyboard` - AI storyboard generation
+   - `/functions/v1/youtube-api` - YouTube data fetching
+3. Edge Functions use secrets stored in Supabase
+4. No local backend server needed
 
 ## Deployment
 

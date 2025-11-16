@@ -1,16 +1,13 @@
 import { YouTubeVideo, Comment } from '../types';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger.js';
-import { API_CONFIG } from '../constants/index.js';
 
-const API_BASE_URL = API_CONFIG.BASE_URL;
-
-async function checkBackendHealth(): Promise<boolean> {
-  return true;
-}
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const API_BASE_URL = `${SUPABASE_URL}/functions/v1/youtube-api`;
 
 export async function fetchTrendingShorts(limit: number = 20, query?: string): Promise<YouTubeVideo[]> {
   const startTime = Date.now();
-  
+
   try {
     logInfo('Fetching trending YouTube Shorts', {
       category: 'API',
@@ -19,26 +16,12 @@ export async function fetchTrendingShorts(limit: number = 20, query?: string): P
       limit,
       query: query || 'trending',
     });
-    
-    // Check if backend is available first
-    const isBackendAvailable = await checkBackendHealth();
-    if (!isBackendAvailable) {
-      const error = new Error(
-        `Backend server is not running. Please start the backend server with "npm run server" or "npm run dev:full". ` +
-        `Expected server at ${API_BASE_URL}`
-      );
-      logError('Backend server not available', error, {
-        category: 'API',
-        component: 'youtubeService',
-        action: 'fetch-trending',
-      });
-      throw error;
-    }
 
     const queryParam = query ? `&query=${encodeURIComponent(query)}` : '';
-    const response = await fetch(`${API_BASE_URL}/api/youtube/trending-shorts?limit=${limit}${queryParam}`, {
+    const response = await fetch(`${API_BASE_URL}/trending-shorts?limit=${limit}${queryParam}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       },
       cache: 'default'
     });
@@ -132,9 +115,10 @@ export async function fetchVideoMetadata(videoId: string): Promise<YouTubeVideo>
       videoId,
     });
     
-    const response = await fetch(`${API_BASE_URL}/api/youtube/video/${videoId}`, {
+    const response = await fetch(`${API_BASE_URL}/video/${videoId}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       }
     });
     
@@ -224,26 +208,11 @@ export async function fetchVideoComments(videoId: string, maxResults: number = 1
       videoId,
       maxResults,
     });
-    
-    // Check if backend is available first
-    const isBackendAvailable = await checkBackendHealth();
-    if (!isBackendAvailable) {
-      const error = new Error(
-        `Backend server is not running. Please start the backend server with "npm run server" or "npm run dev:full". ` +
-        `Expected server at ${API_BASE_URL}`
-      );
-      logError('Backend server not available', error, {
-        category: 'API',
-        component: 'youtubeService',
-        action: 'fetch-comments',
-        videoId,
-      });
-      throw error;
-    }
 
-    const response = await fetch(`${API_BASE_URL}/api/youtube/video/${videoId}/comments?maxResults=${maxResults}`, {
+    const response = await fetch(`${API_BASE_URL}/video/${videoId}/comments?maxResults=${maxResults}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       }
     });
     
