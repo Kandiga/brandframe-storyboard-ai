@@ -321,9 +321,21 @@ const StoryboardWizard: React.FC<StoryboardWizardProps> = ({
           previewUrl={formData.characterPreview}
         />
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>Tip:</strong> Upload at least one asset to continue. You can add more characters in the next step.
+        <div className={`border-2 rounded-lg p-4 ${
+          formData.logoFile || formData.characterFile
+            ? 'bg-green-50 border-green-300'
+            : 'bg-amber-50 border-amber-300'
+        }`}>
+          <p className={`text-sm font-semibold ${
+            formData.logoFile || formData.characterFile
+              ? 'text-green-800'
+              : 'text-amber-800'
+          }`}>
+            {formData.logoFile || formData.characterFile ? (
+              <>✓ Great! You can now continue to the next step. Click "Next" below.</>
+            ) : (
+              <>⚠ Upload at least one asset (logo or character) to continue to the next step.</>
+            )}
           </p>
         </div>
       </WizardStep>
@@ -495,13 +507,19 @@ const StoryboardWizard: React.FC<StoryboardWizardProps> = ({
           className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-base"
         />
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">
-            {formData.storyDescription.length} characters
-          </span>
-          <span className={formData.storyDescription.length < 50 ? 'text-orange-600' : 'text-green-600'}>
-            {formData.storyDescription.length < 50 ? 'Add more details for better results' : 'Great! Ready to generate'}
-          </span>
+        <div className={`border-2 rounded-lg p-3 ${
+          formData.storyDescription.trim().length > 0
+            ? 'bg-green-50 border-green-300'
+            : 'bg-amber-50 border-amber-300'
+        }`}>
+          <div className="flex items-center justify-between text-sm">
+            <span className={formData.storyDescription.trim().length > 0 ? 'text-green-700 font-semibold' : 'text-amber-700 font-semibold'}>
+              {formData.storyDescription.trim().length > 0 ? '✓ Story added!' : '⚠ Story required'}
+            </span>
+            <span className="text-gray-600">
+              {formData.storyDescription.length} characters
+            </span>
+          </div>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
