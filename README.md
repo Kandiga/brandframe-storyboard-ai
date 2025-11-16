@@ -35,3 +35,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1gKqQVYTsJMs8tbID6URtz9
 The YouTube scraping backend server runs on port 3002 by default. You can configure the port by setting the `PORT` environment variable.
 
 **Note:** The YouTube Shorts scraping feature uses web scraping which may have limitations. For production use, consider integrating YouTube Data API v3 for more reliable access to trending videos.
+
+## Deployment
+
+For production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Quick steps:
+1. Deploy frontend to Netlify (or similar platform)
+2. Deploy backend to Railway/Heroku/Render (or similar platform)
+3. Set `VITE_API_URL` environment variable in frontend deployment
+4. Set `FRONTEND_URL` and other environment variables in backend deployment
+5. Ensure CORS is properly configured (see DEPLOYMENT.md for details)

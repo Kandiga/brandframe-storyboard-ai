@@ -67,6 +67,19 @@ class ApiClient {
         // Log error response
         logApiResponse(method, url, response.status, duration, errorData);
         
+        // Handle CORS errors specifically
+        if (response.status === 0 || (response.status >= 400 && !errorData.error)) {
+          const isProduction = window.location.hostname !== 'localhost';
+          if (isProduction) {
+            return {
+              success: false,
+              error: `CORS error: The backend server is not allowing requests from ${window.location.origin}. Please ensure the backend CORS configuration includes this domain, or set FRONTEND_URL environment variable in the backend to ${window.location.origin}.`,
+              code: 'CORS_ERROR',
+              statusCode: response.status || 0,
+            };
+          }
+        }
+        
         return {
           success: false,
           error: errorData.error || `Request failed: ${response.statusText}`,
@@ -101,9 +114,23 @@ class ApiClient {
       }
 
       if (error instanceof TypeError && error.message.includes('fetch')) {
+        // Check if this is a CORS error or connection error
+        const isLocalhost = this.baseURL.includes('localhost');
+        const isProduction = window.location.hostname !== 'localhost';
+        
+        let errorMessage = `Cannot connect to server at ${this.baseURL}.`;
+        
+        if (isProduction && isLocalhost) {
+          errorMessage += ' The API URL is set to localhost, which will not work in production. Please set the VITE_API_URL environment variable in your deployment platform (e.g., Netlify) to your backend URL.';
+        } else if (isProduction) {
+          errorMessage += ' Please verify that: 1) The backend server is deployed and running, 2) The VITE_API_URL environment variable is set correctly in your deployment platform, 3) CORS is properly configured on the backend to allow requests from this domain.';
+        } else {
+          errorMessage += ' Please make sure the backend server is running. Start it with "npm run server" or "npm run dev:full".';
+        }
+        
         return {
           success: false,
-          error: `Cannot connect to server at ${this.baseURL}. Please make sure the backend server is running.`,
+          error: errorMessage,
         };
       }
 

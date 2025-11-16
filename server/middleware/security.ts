@@ -21,12 +21,18 @@ export const securityMiddleware = helmet({
 
 /**
  * CORS configuration with specific origins
+ * Supports localhost for development and Netlify domains for production
  */
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
+
+// Helper function to check if origin is a Netlify domain
+const isNetlifyDomain = (origin: string): boolean => {
+  return origin.endsWith('.netlify.app') || origin.includes('.netlify.app');
+};
 
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
@@ -35,11 +41,28 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
     
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow localhost origins in development
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    
+    // Allow all Netlify domains in production
+    if (isNetlifyDomain(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow all origins in development mode
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // Allow if explicitly set in ALLOWED_ORIGINS environment variable (comma-separated)
+    const additionalOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
+    if (additionalOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
