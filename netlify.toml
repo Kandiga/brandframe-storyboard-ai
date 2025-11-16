@@ -3,22 +3,12 @@
   command = "npm run build"
   # Directory to publish
   publish = "dist"
-  # Functions directory
-  functions = "netlify/functions"
 
 # Environment variables should be set in Netlify dashboard:
-# - GEMINI_API_KEY: Your Gemini API key (required)
-# - YOUTUBE_API_KEY: Your YouTube API key (optional, for YouTube Shorts feature)
-# Note: VITE_API_URL is no longer needed - API calls will use relative paths to Netlify Functions
+# - VITE_API_URL: Your backend API URL (e.g., https://your-backend.herokuapp.com or https://your-backend.railway.app)
+# - Any other environment variables your app needs
 
-# Redirect API calls to Netlify Functions
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api"
-  status = 200
-  force = true
-
-# Redirect all other routes to index.html for SPA routing
+# Redirect all routes to index.html for SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
