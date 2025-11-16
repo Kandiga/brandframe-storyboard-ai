@@ -55,6 +55,18 @@ function App() {
     });
   }, []);
 
+  // Use custom hooks
+  const { projects: savedProjects, saveProject, deleteProject, loadProject } = useProjects();
+  const { storyboard: storyboardData, isLoading, error: storyboardError, progress, generate: generateStoryboard, continueNarrative, setStoryboard: setStoryboardData } = useStoryboard({
+    onError: (err) => {
+      setErrorMessage(err);
+      logError('Storyboard generation error in App', new Error(err), {
+        category: 'GENERATION',
+        component: 'App',
+      });
+    },
+  });
+
   // Check for incomplete drafts on mount
   useEffect(() => {
     if (drafts.length > 0 && !storyboardData) {
@@ -68,18 +80,6 @@ function App() {
       });
     }
   }, [drafts, storyboardData]);
-
-  // Use custom hooks
-  const { projects: savedProjects, saveProject, deleteProject, loadProject } = useProjects();
-  const { storyboard: storyboardData, isLoading, error: storyboardError, progress, generate: generateStoryboard, continueNarrative, setStoryboard: setStoryboardData } = useStoryboard({
-    onError: (err) => {
-      setErrorMessage(err);
-      logError('Storyboard generation error in App', new Error(err), {
-        category: 'GENERATION',
-        component: 'App',
-      });
-    },
-  });
 
   // Wrapper to log view changes
   const setCurrentView = useCallback((view: View) => {
