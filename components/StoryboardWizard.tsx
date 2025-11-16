@@ -298,6 +298,8 @@ const StoryboardWizard: React.FC<StoryboardWizardProps> = ({
     <div className="flex flex-col h-full bg-gray-50">
       <WizardProgress currentStep={currentStep} totalSteps={5} stepTitles={STEP_TITLES} />
 
+      <div className="flex-1 overflow-y-auto pb-32">
+
       <WizardStep
         isActive={currentStep === 1}
         title="Upload Brand Assets"
@@ -650,6 +652,7 @@ const StoryboardWizard: React.FC<StoryboardWizardProps> = ({
           </div>
         </div>
       </WizardStep>
+      </div>
 
       <WizardNavigation
         currentStep={currentStep}

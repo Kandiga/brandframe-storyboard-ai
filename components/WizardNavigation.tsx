@@ -33,7 +33,7 @@ const WizardNavigation: React.FC<WizardNavigationProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-2xl z-50 lg:hidden">
+    <div className="fixed bottom-20 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-2xl z-50 lg:hidden">
       <div
         className="px-4 py-4 flex items-center justify-between gap-3"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
