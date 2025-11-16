@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI, Type, Modality } from "npm:@google/genai@1.29.0";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { extractDetailedVisualInfo, buildEnhancedConsistencyPrompt, DetailedVisualAnalysis } from "./enhanced-consistency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -269,20 +270,66 @@ async function validateConsistency(
   const startTime = Date.now();
 
   try {
-    const validationPrompt = `You are a VISUAL CONSISTENCY VALIDATION AGENT.
+    const validationPrompt = `You are an ULTRA-STRICT VISUAL CONSISTENCY VALIDATION AGENT.
 
-Your task: Compare the GENERATED image against the REFERENCE image and score consistency across multiple dimensions.
+Your task: Compare the GENERATED image against the REFERENCE image with EXTREME SCRUTINY.
 
 REFERENCE TYPE: ${referenceType}
 
-Evaluate these aspects (0-100 scale):
-1. **Character Identity** (if ${referenceType} includes character): Face, body, clothing, distinctive features
-2. **Art Style**: Visual style, rendering technique, artistic approach
-3. **Color Palette**: Color harmony, saturation, temperature
-4. **Lighting**: Lighting direction, quality, shadows, highlights
-5. **Composition**: Framing, balance, visual hierarchy
+═══════════════════════════════════════════════════════════
+VALIDATION CRITERIA (Be EXTREMELY CRITICAL)
+═══════════════════════════════════════════════════════════
 
-Provide scores and detailed feedback.
+Evaluate these aspects (0-100 scale):
+
+1. **Character Identity Score** (if character present):
+   - EXACT clothing match: Same items, colors, patterns (25 points)
+   - Accessories match: Same jewelry, watches, bags, etc. (15 points)
+   - Hairstyle match: Same length, color, style (15 points)
+   - Facial features match: Same face structure, eyes, nose (25 points)
+   - Body type match: Same proportions and build (20 points)
+
+   CRITICAL: Deduct 20 points for ANY clothing difference
+   CRITICAL: Deduct 15 points for missing/different accessories
+   CRITICAL: Deduct 15 points for different hairstyle
+
+2. **Art Style Score**:
+   - Visual style consistency (40 points)
+   - Rendering technique match (30 points)
+   - Artistic approach similarity (30 points)
+
+3. **Color Palette Score**:
+   - Main colors match (40 points)
+   - Color temperature match (30 points)
+   - Saturation levels match (30 points)
+
+4. **Lighting Score**:
+   - Light direction match (35 points)
+   - Light quality match (35 points)
+   - Shadow consistency (30 points)
+
+5. **Composition Score**:
+   - Background elements match (40 points)
+   - Environmental props match (30 points)
+   - Spatial arrangement match (30 points)
+
+═══════════════════════════════════════════════════════════
+SCORING GUIDELINES
+═══════════════════════════════════════════════════════════
+90-100: Nearly perfect match, tiny differences only
+80-89: Very good match, minor differences
+70-79: Good match, noticeable but acceptable differences
+60-69: Fair match, several significant differences
+Below 60: Poor match, major differences - FAIL
+
+═══════════════════════════════════════════════════════════
+CRITICAL FAILURES (Auto-score below 70)
+═══════════════════════════════════════════════════════════
+• Character wearing DIFFERENT clothing than reference
+• Character has DIFFERENT hair length/color/style
+• Missing or different accessories (jewelry, glasses, etc.)
+• Different background environment
+• Wrong color palette
 
 Respond with ONLY valid JSON:
 {
@@ -292,7 +339,7 @@ Respond with ONLY valid JSON:
   "lightingScore": 0-100,
   "compositionScore": 0-100,
   "overallScore": 0-100,
-  "feedback": "Detailed analysis of consistency"
+  "feedback": "DETAILED analysis: List EVERY difference found, even tiny ones. Be specific about clothing items, colors, accessories, hair, background elements."
 }`;
 
     const validationResponse = await ai.models.generateContent({
@@ -316,7 +363,7 @@ Respond with ONLY valid JSON:
 
     const executionTime = Date.now() - startTime;
     const overallScore = scores.overallScore || 0;
-    const passed = overallScore >= 70;
+    const passed = overallScore >= 85;
 
     await supabase.from('consistency_validations').insert({
       generation_id: generationId,
@@ -332,7 +379,7 @@ Respond with ONLY valid JSON:
       lighting_score: scores.lightingScore || 0,
       composition_score: scores.compositionScore || 0,
       validation_passed: passed,
-      threshold_used: 70,
+      threshold_used: 85,
       validation_notes: scores.feedback || 'No feedback provided',
     });
 
@@ -630,6 +677,30 @@ Deno.serve(async (req: Request) => {
     const imagesStartTime = Date.now();
     let totalRegenerations = 0;
 
+    let characterAnalysis: DetailedVisualAnalysis | null = null;
+    let backgroundAnalysis: DetailedVisualAnalysis | null = null;
+    let artStyleAnalysis: DetailedVisualAnalysis | null = null;
+
+    if (mainCharacter) {
+      console.log('Extracting detailed character analysis...');
+      characterAnalysis = await extractDetailedVisualInfo(ai, mainCharacter, 'character');
+      console.log('Character analysis complete:', JSON.stringify(characterAnalysis));
+    }
+
+    if (backgroundAsset) {
+      console.log('Extracting detailed background analysis...');
+      backgroundAnalysis = await extractDetailedVisualInfo(ai, backgroundAsset, 'background');
+      console.log('Background analysis complete:', JSON.stringify(backgroundAnalysis));
+    }
+
+    if (artStyleAsset) {
+      console.log('Extracting detailed art style analysis...');
+      artStyleAnalysis = await extractDetailedVisualInfo(ai, artStyleAsset, 'art_style');
+      console.log('Art style analysis complete:', JSON.stringify(artStyleAnalysis));
+    }
+
+    let previousFrameImage: string | null = null;
+
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       const imageGenParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
@@ -694,8 +765,38 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      const mergedAnalysis: DetailedVisualAnalysis = {
+        character: characterAnalysis?.character || {
+          clothing: [],
+          accessories: [],
+          hairstyle: 'Unknown',
+          facialFeatures: [],
+          bodyType: 'Unknown',
+          pose: 'Unknown'
+        },
+        environment: {
+          background: backgroundAnalysis?.environment.background || 'Unknown',
+          architecture: backgroundAnalysis?.environment.architecture || [],
+          lighting: backgroundAnalysis?.environment.lighting || artStyleAnalysis?.environment.lighting || 'Unknown',
+          colorPalette: backgroundAnalysis?.environment.colorPalette || artStyleAnalysis?.environment.colorPalette || [],
+          atmosphere: backgroundAnalysis?.environment.atmosphere || 'Unknown',
+          props: backgroundAnalysis?.environment.props || []
+        },
+        technical: backgroundAnalysis?.technical || artStyleAnalysis?.technical || {
+          cameraAngle: 'Unknown',
+          composition: 'Unknown',
+          depth: 'Unknown'
+        }
+      };
+
+      const enhancedPrompt = buildEnhancedConsistencyPrompt(
+        mergedAnalysis,
+        `${scene.scriptLine}\n\n${scene.veoPrompt || scene.sceneContext || ''}`,
+        aspectRatio
+      );
+
       imageGenParts.push({
-        text: `Generate a professional cinematic ${aspectRatio} image for: \"${scene.scriptLine}\".\n\nSCENE SPECIFICATIONS:\n${scene.veoPrompt || scene.sceneContext || ''}\n\nCRITICAL CONSISTENCY REQUIREMENTS:\n- Maintain EXACT character likeness from reference images\n- Match art style PRECISELY\n- Preserve color palette and lighting mood\n- Keep composition style consistent\n\nTECHNICAL REQUIREMENTS:\n- NO TEXT, NO SUBTITLES, NO CAPTIONS, NO WORDS in ANY language\n- Broadcast quality, professional grade\n- Clean, cinematic visual storytelling only`
+        text: enhancedPrompt
       });
 
       const generateFrame = async (variant: 'A' | 'B', maxRetries: number = 3): Promise<string> => {
@@ -729,9 +830,14 @@ Deno.serve(async (req: Request) => {
                 );
 
                 if (!validation.passed && attempt < maxRetries - 1) {
-                  console.log(`Frame ${scene.id}${variant} failed consistency (score: ${validation.overallScore}), regenerating...`);
+                  console.log(`Frame ${scene.id}${variant} failed consistency (score: ${validation.overallScore}/100, threshold: 85), regenerating...`);
+                  console.log(`Consistency feedback: ${validation.feedback}`);
                   totalRegenerations++;
                   continue;
+                }
+
+                if (variant === 'A') {
+                  previousFrameImage = generatedImage;
                 }
 
                 console.log(`Frame ${scene.id}${variant} consistency: ${validation.overallScore}/100`);
