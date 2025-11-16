@@ -4,6 +4,7 @@ import { Storyboard, ActiveTab, GenerationProgress } from '../types';
 import StoryboardView from './StoryboardView';
 import ScriptView from './ScriptView';
 import ProfessionalScriptView from './ProfessionalScriptView';
+import StoryWorldPanel from './StoryWorldPanel';
 import GenerationProgressComponent from './GenerationProgress';
 import { DownloadIcon, SaveIcon } from './icons';
 import { logInfo } from '../utils/logger.js';
@@ -114,6 +115,11 @@ const Dashboard: React.FC<DashboardProps> = memo(({ storyboard, activeTab, setAc
             </div>
           ) : (
             <>
+              {storyboard?.storyWorld && (
+                <div className="mb-6">
+                  <StoryWorldPanel storyboard={storyboard} />
+                </div>
+              )}
               <div className="border-b border-gray-200 overflow-x-auto">
                 <nav className="-mb-px flex space-x-4 lg:space-x-8 min-w-max lg:min-w-0" aria-label="Tabs">
                   <button
@@ -149,8 +155,8 @@ const Dashboard: React.FC<DashboardProps> = memo(({ storyboard, activeTab, setAc
                 </nav>
               </div>
               {activeTab === 'storyboard' ? (
-                <StoryboardView 
-                  storyboard={storyboard} 
+                <StoryboardView
+                  storyboard={storyboard}
                   onContinueNarrative={onContinueNarrative}
                   isContinuing={isLoading}
                 />
