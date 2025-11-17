@@ -9,7 +9,7 @@ import ViralShortsView from './components/ViralShortsView';
 import ErrorBoundary from './components/ErrorBoundary';
 import StoryboardWizard, { WizardFormData } from './components/StoryboardWizard';
 import MobileGenerationScreen from './components/MobileGenerationScreen';
-import VideoToStoryboardWizard from './components/VideoToStoryboardWizard';
+import VideoToStoryboardWizard, { VideoWizardPersistentState } from './components/VideoToStoryboardWizard';
 import { useDrafts, StoryboardDraft } from './hooks/useDrafts';
 import { ActiveTab, YouTubeVideo, Scene, Frame, VideoAnalysis, ExtractedAssets } from './types';
 import { useProjects } from './hooks/useProjects';
@@ -52,6 +52,9 @@ function App() {
     video: YouTubeVideo;
     analysis: VideoAnalysis;
   } | null>(null);
+  const [videoWizardSession, setVideoWizardSession] = useState<VideoWizardPersistentState | null>(null);
+  const [videoWizardSessionId, setVideoWizardSessionId] = useState<string | null>(null);
+  const [isVideoWizardDocked, setIsVideoWizardDocked] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -64,6 +67,27 @@ function App() {
   const [showDraftRecoveryModal, setShowDraftRecoveryModal] = useState(false);
   const [recoveryDraft, setRecoveryDraft] = useState<StoryboardDraft | null>(null);
   const { drafts, loadDraft, deleteDraft } = useDrafts();
+
+  const resetVideoWizardState = useCallback(() => {
+    setVideoWizardSession(null);
+    setVideoWizardSessionId(null);
+    setIsVideoWizardDocked(false);
+  }, []);
+
+  const handleDockVideoWizard = useCallback(() => {
+    setIsVideoWizardDocked(true);
+    setCurrentView('dashboard');
+  }, [setCurrentView]);
+
+  const handleResumeVideoWizard = useCallback(() => {
+    setIsVideoWizardDocked(false);
+    setShowVideoWizard(true);
+    setCurrentView('dashboard');
+  }, [setCurrentView]);
+
+  const handleVideoWizardStateChange = useCallback((state: VideoWizardPersistentState) => {
+    setVideoWizardSession(state);
+  }, []);
   
   // Setup global error handlers on mount
   useEffect(() => {
@@ -520,8 +544,11 @@ function App() {
     });
     setSelectedVideoForWizard(video);
     setShowVideoWizard(true);
+    setVideoWizardSession(null);
+    setVideoWizardSessionId(`${video.id}-${Date.now()}`);
+    setIsVideoWizardDocked(false);
     setCurrentView('dashboard');
-  }, []);
+  }, [setCurrentView]);
 
   const handleVideoSelect = useCallback((video: YouTubeVideo) => {
     logInfo('Video selected for story inspiration - opening wizard', {
@@ -565,6 +592,7 @@ function App() {
     setShowVideoWizard(false);
     setSelectedVideoForWizard(null);
     setErrorMessage('');
+    resetVideoWizardState();
 
     const convertImageSourceToFile = async (source: string, filename: string): Promise<File | null> => {
       if (!source) return null;
@@ -704,13 +732,14 @@ function App() {
       finalArtStyleFile || null,
       data.frameCount
     );
-  }, [generateStoryboard]);
+  }, [generateStoryboard, resetVideoWizardState]);
 
   const handleVideoWizardCancel = useCallback(() => {
     setShowVideoWizard(false);
     setSelectedVideoForWizard(null);
     setCurrentView('viral-shorts');
-  }, []);
+    resetVideoWizardState();
+  }, [resetVideoWizardState, setCurrentView]);
 
   const handleContinueNarrative = useCallback(async (customInstruction?: string) => {
     if (!storyboardData) {
@@ -1047,14 +1076,6 @@ BOUNDARIES & LOGIC:
             onExport={handleExport}
             onSave={handleSaveProject}
           />
-        ) : showVideoWizard && selectedVideoForWizard ? (
-          <ErrorBoundary componentName="VideoToStoryboardWizard">
-            <VideoToStoryboardWizard
-              video={selectedVideoForWizard}
-              onComplete={handleVideoWizardComplete}
-              onCancel={handleVideoWizardCancel}
-            />
-          </ErrorBoundary>
         ) : (
           <ViralShortsView
             onVideoSelect={handleVideoSelect}
@@ -1062,6 +1083,42 @@ BOUNDARIES & LOGIC:
           />
         )}
         </div>
+
+        {showVideoWizard && selectedVideoForWizard && (
+          <>
+            <div
+              className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+                isVideoWizardDocked ? 'opacity-0 pointer-events-none' : 'opacity-100 bg-gray-900/40'
+              }`}
+            />
+            <div
+              className={`fixed inset-y-0 right-0 z-50 w-full bg-gray-50 shadow-2xl transition-all duration-300 ease-in-out lg:w-[900px] ${
+                isVideoWizardDocked ? 'translate-x-full opacity-0 pointer-events-none' : 'translate-x-0 opacity-100'
+              }`}
+            >
+              <ErrorBoundary componentName="VideoToStoryboardWizard">
+                <VideoToStoryboardWizard
+                  video={selectedVideoForWizard}
+                  onComplete={handleVideoWizardComplete}
+                  onCancel={handleVideoWizardCancel}
+                  persistedState={videoWizardSession}
+                  onStateChange={handleVideoWizardStateChange}
+                  sessionId={videoWizardSessionId}
+                  onRequestDock={handleDockVideoWizard}
+                />
+              </ErrorBoundary>
+            </div>
+            {isVideoWizardDocked && (
+              <button
+                onClick={handleResumeVideoWizard}
+                className="fixed bottom-28 right-4 z-50 rounded-full bg-indigo-600 text-white shadow-xl px-5 py-3 text-sm font-semibold hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
+              >
+                Resume Video Wizard
+              </button>
+            )}
+          </>
+        )}
+
         <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
 
         {showDraftRecoveryModal && recoveryDraft && (

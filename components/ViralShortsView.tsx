@@ -189,6 +189,21 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCrea
           </div>
         </div>
 
+        <div className="mb-6 bg-white border border-indigo-200 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-indigo-900 font-semibold text-sm mb-2">
+            <svg className="w-4 h-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Ready to turn a YouTube Short into a storyboard?
+          </div>
+          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+            <li>Make sure your YouTube API key is configured (see <span className="font-semibold">API_KEYS_SETUP.md</span>).</li>
+            <li>Run <code className="bg-gray-100 px-1 rounded">npm run dev:full</code> (or backend + frontend separately) so searches stay fast.</li>
+            <li>Use <span className="font-semibold">Create Storyboard</span> on any card to “push” the short into the 5-step wizard.</li>
+            <li>The wizard now docks on the right—jump back to the dashboard anytime without losing progress.</li>
+          </ul>
+        </div>
+
         {/* Search History */}
         {searchHistory.length > 0 && (
           <div className="mb-6">

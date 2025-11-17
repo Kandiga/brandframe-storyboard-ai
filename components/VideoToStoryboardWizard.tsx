@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { YouTubeVideo, VideoAnalysis, ExtractedAssets } from '../types';
 import WizardProgress from './WizardProgress';
 import WizardNavigation from './WizardNavigation';
@@ -32,9 +32,40 @@ interface VideoToStoryboardWizardProps {
     selectedBackgroundFrame?: number | null;
   }) => void;
   onCancel: () => void;
+  persistedState?: VideoWizardPersistentState | null;
+  onStateChange?: (state: VideoWizardPersistentState) => void;
+  sessionId?: string | null;
+  onRequestDock?: () => void;
 }
 
 const STEP_TITLES = ['Video Preview', 'Analysis', 'Frame Selection', 'Assets', 'Review'];
+
+const createDefaultFormData = (): VideoWizardFormData => ({
+  logoFile: null,
+  characterFile: null,
+  backgroundFile: null,
+  artStyleFile: null,
+  characterFiles: [],
+  logoPreview: null,
+  characterPreview: null,
+  backgroundPreview: null,
+  artStylePreview: null,
+  characterPreviews: [],
+  customStory: '',
+  aspectRatio: '16:9',
+  frameCount: 4,
+  selectedFrames: [],
+  visualStylePrompt: '',
+  selectedArtStyleFrame: null,
+  selectedBackgroundFrame: null,
+});
+
+const cloneFormData = (formData: VideoWizardFormData): VideoWizardFormData => ({
+  ...formData,
+  characterFiles: [...(formData.characterFiles || [])],
+  characterPreviews: [...(formData.characterPreviews || [])],
+  selectedFrames: [...(formData.selectedFrames || [])],
+});
 
 export interface VideoWizardFormData {
   logoFile: File | null;
@@ -56,10 +87,25 @@ export interface VideoWizardFormData {
   selectedBackgroundFrame: number | null;
 }
 
+export interface VideoWizardPersistentState {
+  currentStep: number;
+  formData: VideoWizardFormData;
+  analysis: VideoAnalysis | null;
+  extractedAssets: ExtractedAssets | null;
+  isAnalyzing: boolean;
+  isExtracting: boolean;
+  error: string | null;
+  videoId: string;
+}
+
 const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
   video,
   onComplete,
   onCancel,
+  persistedState,
+  onStateChange,
+  sessionId,
+  onRequestDock,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -68,25 +114,71 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
   const [extractedAssets, setExtractedAssets] = useState<ExtractedAssets | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<VideoWizardFormData>({
-    logoFile: null,
-    characterFile: null,
-    backgroundFile: null,
-    artStyleFile: null,
-    characterFiles: [],
-    logoPreview: null,
-    characterPreview: null,
-    backgroundPreview: null,
-    artStylePreview: null,
-    characterPreviews: [],
-    customStory: '',
-    aspectRatio: '16:9',
-    frameCount: 4,
-    selectedFrames: [],
-    visualStylePrompt: '',
-    selectedArtStyleFrame: null,
-    selectedBackgroundFrame: null,
-  });
+  const [formData, setFormData] = useState<VideoWizardFormData>(createDefaultFormData);
+  const hydratedSessionRef = useRef<string | null>(null);
+
+  const hydrateFromState = useCallback(
+    (state: VideoWizardPersistentState | null) => {
+      if (!state || state.videoId !== video.id) {
+        setCurrentStep(1);
+        setFormData(createDefaultFormData());
+        setAnalysis(null);
+        setExtractedAssets(null);
+        setIsAnalyzing(false);
+        setIsExtracting(false);
+        setError(null);
+        return;
+      }
+
+      setCurrentStep(state.currentStep || 1);
+      setFormData(cloneFormData(state.formData));
+      setAnalysis(state.analysis || null);
+      setExtractedAssets(state.extractedAssets || null);
+      setIsAnalyzing(!!state.isAnalyzing);
+      setIsExtracting(!!state.isExtracting);
+      setError(state.error || null);
+    },
+    [video.id]
+  );
+
+  useEffect(() => {
+    if (!sessionId) return;
+    if (hydratedSessionRef.current === sessionId) {
+      return;
+    }
+
+    hydrateFromState(persistedState || null);
+    hydratedSessionRef.current = sessionId;
+  }, [persistedState, sessionId, hydrateFromState]);
+
+  useEffect(() => {
+    if (!onStateChange) return;
+    if (sessionId && hydratedSessionRef.current !== sessionId) {
+      return;
+    }
+
+    onStateChange({
+      currentStep,
+      formData,
+      analysis,
+      extractedAssets,
+      isAnalyzing,
+      isExtracting,
+      error,
+      videoId: video.id,
+    });
+  }, [
+    currentStep,
+    formData,
+    analysis,
+    extractedAssets,
+    isAnalyzing,
+    isExtracting,
+    error,
+    video.id,
+    onStateChange,
+    sessionId,
+  ]);
 
   const handleAnalyzeVideo = useCallback(async () => {
     setIsAnalyzing(true);
@@ -260,6 +352,25 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <WizardProgress currentStep={currentStep} totalSteps={5} stepTitles={stepTitles} />
+
+      {onRequestDock && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Video Wizard</p>
+            <p className="font-semibold text-gray-900">{video.title}</p>
+            <p className="text-xs text-gray-500">Progress auto-saves when you return to the dashboard.</p>
+          </div>
+          <button
+            onClick={onRequestDock}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <svg className="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h11M3 6h11m-7 8h7m2 4l4-4m0 0l-4-4m4 4H10" />
+            </svg>
+            Return to Dashboard
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto pb-32">
         {error && (
