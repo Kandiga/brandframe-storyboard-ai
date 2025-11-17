@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Storyboard, GenerationProgress } from '../types.js';
-import { generateStoryboard } from '../services/geminiService.js';
+import { generateStoryboard, continueStoryboard } from '../services/geminiService.js';
 import { createErrorMessage } from '../utils/errorHandler.js';
 import { logInfo, logError, logDebug, time, timeEnd } from '../utils/logger.js';
 
@@ -360,7 +360,6 @@ export function useStoryboard(options: UseStoryboardOptions = {}) {
         onProgressRef.current?.(progressData);
       };
       
-      const { continueStoryboard } = await import('../services/geminiService.js');
       const newScenes = await continueStoryboard(
         logo, 
         character, 
