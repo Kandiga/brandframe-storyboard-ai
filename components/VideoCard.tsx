@@ -5,9 +5,10 @@ import VideoDetailsModal from './VideoDetailsModal';
 interface VideoCardProps {
   video: YouTubeVideo;
   onSelect: (video: YouTubeVideo) => void;
+  onCreateStoryboard?: (video: YouTubeVideo) => void;
 }
 
-const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
+const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect, onCreateStoryboard }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const formatNumber = (num: number): string => {
     if (num >= 1000000) {
@@ -42,6 +43,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
             {formatDuration(video.duration)}
           </div>
         )}
+        {video.videoStyle && (
+          <div className="absolute top-2 left-2 bg-purple-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded font-medium">
+            {video.videoStyle}
+          </div>
+        )}
       </div>
       <div className="p-3 lg:p-4">
         <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[3rem] text-sm sm:text-base">
@@ -72,19 +78,29 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect }) => {
             </div>
           </div>
         )}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
-          >
-            View Details
-          </button>
-          <button
-            onClick={() => onSelect(video)}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
-          >
-            Use as Inspiration
-          </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
+            >
+              View Details
+            </button>
+            <button
+              onClick={() => onSelect(video)}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
+            >
+              Use as Inspiration
+            </button>
+          </div>
+          {onCreateStoryboard && (
+            <button
+              onClick={() => onCreateStoryboard(video)}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
+            >
+              Create Storyboard
+            </button>
+          )}
         </div>
       </div>
       </div>

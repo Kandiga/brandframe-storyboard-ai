@@ -100,6 +100,82 @@ export interface Storyboard {
     background?: Base64Asset | null;
     artStyle?: Base64Asset | null;
   };
+  // Optional: Video source metadata if created from video
+  videoSource?: {
+    videoId: string;
+    title: string;
+    url: string;
+    analysis?: VideoAnalysis;
+  };
+}
+
+// Video Analysis Types
+export interface VideoAnalysis {
+  script: string;
+  keyMoments: KeyMoment[];
+  detectedCharacters: DetectedCharacter[];
+  detectedBackgrounds: DetectedBackground[];
+  visualStyle: VisualStyle;
+  suggestedStoryboard: SuggestedStoryboard;
+}
+
+export interface KeyMoment {
+  timestamp: number;
+  description: string;
+  thumbnail: string;
+}
+
+export interface DetectedCharacter {
+  description: string;
+  appearance: string;
+  frequency: number;
+}
+
+export interface DetectedBackground {
+  description: string;
+  style: string;
+  frequency: number;
+}
+
+export interface VisualStyle {
+  dominantColors: string[];
+  composition: string;
+  lighting: string;
+}
+
+export interface SuggestedStoryboard {
+  scenes: SuggestedScene[];
+}
+
+export interface SuggestedScene {
+  title: string;
+  scriptLine: string;
+  timestamp: number;
+  thumbnail: string;
+}
+
+// Extracted Assets Types
+export interface ExtractedAssets {
+  characters: ExtractedCharacter[];
+  backgrounds: ExtractedBackground[];
+  styleReference: StyleReference;
+}
+
+export interface ExtractedCharacter {
+  image: string; // base64 או URL
+  description: string;
+  sourceTimestamp: number;
+}
+
+export interface ExtractedBackground {
+  image: string;
+  description: string;
+  sourceTimestamp: number;
+}
+
+export interface StyleReference {
+  image: string;
+  description: string;
 }
 
 export type ActiveTab = 'storyboard' | 'script' | 'professional';
@@ -159,6 +235,26 @@ export interface Comment {
   publishedAt: string;
 }
 
+export type VideoStyle = 'shorts' | 'long-form' | 'tutorial' | 'review' | 'vlog' | 'music' | 'gaming' | 'educational' | 'entertainment';
+
+export interface VideoStyleFilter {
+  style: VideoStyle;
+  label: string;
+  icon: string;
+  durationRange?: { min: number; max: number }; // in seconds
+}
+
+export type SortBy = 'views' | 'likes' | 'engagement' | 'date' | 'relevance';
+
+export interface SearchFilters {
+  videoStyle: VideoStyle | 'all';
+  sortBy: SortBy;
+  minViews?: number;
+  minLikes?: number;
+  dateRange?: { start: Date; end: Date };
+  categoryId?: string;
+}
+
 export interface YouTubeVideo {
   id: string;
   title: string;
@@ -172,4 +268,7 @@ export interface YouTubeVideo {
   commentCount?: number;
   engagementRate?: number;
   topComments?: Comment[];
+  videoStyle?: VideoStyle;
+  categoryId?: string;
+  tags?: string[];
 }

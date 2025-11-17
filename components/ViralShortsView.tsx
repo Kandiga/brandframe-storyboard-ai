@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { YouTubeVideo } from '../types';
-import { fetchTrendingShorts } from '../services/youtubeService';
+import React, { useState, useEffect } from 'react';
+import { YouTubeVideo, VideoStyle, VideoStyleFilter, SortBy } from '../types';
+import { fetchTrendingShorts, fetchVideoStyles, fetchVideosByStyle } from '../services/youtubeService';
 import VideoCard from './VideoCard';
 
 interface ViralShortsViewProps {
   onVideoSelect: (video: YouTubeVideo) => void;
+  onCreateStoryboard?: (video: YouTubeVideo) => void;
 }
 
 interface SearchResult {
@@ -13,13 +14,22 @@ interface SearchResult {
   timestamp: number;
 }
 
-const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect }) => {
+const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCreateStoryboard }) => {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeQuery, setActiveQuery] = useState<string>('');
   const [searchHistory, setSearchHistory] = useState<SearchResult[]>([]);
+  const [videoStyle, setVideoStyle] = useState<VideoStyle | 'all'>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('views');
+  const [videoStyles, setVideoStyles] = useState<VideoStyleFilter[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Load video styles on mount
+  useEffect(() => {
+    fetchVideoStyles().then(setVideoStyles).catch(console.error);
+  }, []);
 
   const loadVideos = async (query: string, addToHistory: boolean = true) => {
     if (!query || !query.trim()) {
@@ -45,7 +55,14 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect }) => {
       }
 
       console.log(`[ViralShortsView] Starting search for: "${trimmedQuery}"`);
-      const trendingVideos = await fetchTrendingShorts(20, trimmedQuery);
+      let trendingVideos: YouTubeVideo[];
+      
+      if (videoStyle === 'all') {
+        trendingVideos = await fetchTrendingShorts(20, trimmedQuery);
+      } else {
+        trendingVideos = await fetchVideosByStyle(videoStyle, trimmedQuery, { sortBy });
+      }
+      
       console.log(`[ViralShortsView] Search completed. Found ${trendingVideos.length} videos`);
       
       setVideos(trendingVideos);
@@ -93,6 +110,37 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect }) => {
       handleSearch();
     }
   };
+
+  const handleStyleChange = (style: VideoStyle | 'all') => {
+    setVideoStyle(style);
+    if (activeQuery) {
+      loadVideos(activeQuery, false);
+    }
+  };
+
+  const handleSortChange = (sort: SortBy) => {
+    setSortBy(sort);
+    if (activeQuery) {
+      loadVideos(activeQuery, false);
+    }
+  };
+
+  // Sort videos based on sortBy
+  const sortedVideos = [...videos].sort((a, b) => {
+    switch (sortBy) {
+      case 'views':
+        return b.viewCount - a.viewCount;
+      case 'likes':
+        return (b.likeCount || 0) - (a.likeCount || 0);
+      case 'engagement':
+        return (b.engagementRate || 0) - (a.engagementRate || 0);
+      case 'date':
+        // Note: We don't have publish date, so skip this
+        return 0;
+      default:
+        return 0;
+    }
+  });
 
   return (
     <div className="flex-1 p-4 lg:p-8 overflow-y-auto">
@@ -168,52 +216,86 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect }) => {
           </div>
         )}
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Search for viral shorts by topic (e.g., cooking, fitness, comedy)..."
-              className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 text-base"
-            />
-            <svg
-              className="absolute left-3 top-3.5 w-5 h-5 text-gray-400"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        <div className="mb-6 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Style Filter */}
+            <select
+              value={videoStyle}
+              onChange={(e) => handleStyleChange(e.target.value as VideoStyle | 'all')}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-base min-w-[150px]"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              <option value="all">All Styles</option>
+              {videoStyles.map((style) => (
+                <option key={style.style} value={style.style}>
+                  {style.icon} {style.label}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Search for viral videos by topic (e.g., cooking, fitness, comedy)..."
+                className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 text-base"
               />
-            </svg>
+              <svg
+                className="absolute left-3 top-3.5 w-5 h-5 text-gray-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg shadow-sm inline-flex items-center justify-center gap-2 transition-colors min-h-[44px] w-full sm:w-auto"
+            >
+              <svg
+                className="w-5 h-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              Search
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={isLoading}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg shadow-sm inline-flex items-center justify-center gap-2 transition-colors min-h-[44px] w-full sm:w-auto"
-          >
-            <svg
-              className="w-5 h-5"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            Search
-          </button>
+
+          {/* Sort Options */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Sort by:</span>
+            {(['views', 'likes', 'engagement'] as SortBy[]).map((sort) => (
+              <button
+                key={sort}
+                onClick={() => handleSortChange(sort)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === sort
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {sort === 'views' ? 'Views' : sort === 'likes' ? 'Likes' : 'Engagement'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -307,10 +389,15 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect }) => {
               </div>
             )}
           </div>
-        ) : videos.length > 0 ? (
+        ) : sortedVideos.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {videos.map((video) => (
-              <VideoCard key={video.id} video={video} onSelect={onVideoSelect} />
+            {sortedVideos.map((video) => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                onSelect={onVideoSelect}
+                onCreateStoryboard={onCreateStoryboard}
+              />
             ))}
           </div>
         ) : null}

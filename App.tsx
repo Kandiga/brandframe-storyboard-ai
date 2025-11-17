@@ -9,8 +9,9 @@ import ViralShortsView from './components/ViralShortsView';
 import ErrorBoundary from './components/ErrorBoundary';
 import StoryboardWizard, { WizardFormData } from './components/StoryboardWizard';
 import MobileGenerationScreen from './components/MobileGenerationScreen';
+import VideoToStoryboardWizard from './components/VideoToStoryboardWizard';
 import { useDrafts, StoryboardDraft } from './hooks/useDrafts';
-import { ActiveTab, YouTubeVideo, Scene, Frame } from './types';
+import { ActiveTab, YouTubeVideo, Scene, Frame, VideoAnalysis, ExtractedAssets } from './types';
 import { useProjects } from './hooks/useProjects';
 import { useStoryboard } from './hooks/useStoryboard';
 import { fileToBase64 } from './utils/fileUtils';
@@ -45,6 +46,12 @@ function App() {
   const [showWizard, setShowWizard] = useState(false);
   const [mobileWizardData, setMobileWizardData] = useState<WizardFormData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [showVideoWizard, setShowVideoWizard] = useState(false);
+  const [selectedVideoForWizard, setSelectedVideoForWizard] = useState<YouTubeVideo | null>(null);
+  const [pendingVideoSource, setPendingVideoSource] = useState<{
+    video: YouTubeVideo;
+    analysis: VideoAnalysis;
+  } | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -76,6 +83,22 @@ function App() {
         category: 'GENERATION',
         component: 'App',
       });
+    },
+    onSuccess: (storyboard) => {
+      // Add video source metadata if pending
+      if (pendingVideoSource && storyboard) {
+        const updatedStoryboard = {
+          ...storyboard,
+          videoSource: {
+            videoId: pendingVideoSource.video.id,
+            title: pendingVideoSource.video.title,
+            url: pendingVideoSource.video.url,
+            analysis: pendingVideoSource.analysis,
+          },
+        };
+        setStoryboardData(updatedStoryboard);
+        setPendingVideoSource(null);
+      }
     },
   });
 
@@ -509,6 +532,109 @@ function App() {
     }
   }, []);
 
+  const handleCreateStoryboardFromVideo = useCallback((video: YouTubeVideo) => {
+    logInfo('Creating storyboard from video', {
+      category: 'USER_ACTION',
+      component: 'App',
+      action: 'create-storyboard-from-video',
+      videoId: video.id,
+      videoTitle: video.title,
+    });
+    setSelectedVideoForWizard(video);
+    setShowVideoWizard(true);
+    setCurrentView('dashboard');
+  }, []);
+
+  const handleVideoWizardComplete = useCallback(async (data: {
+    video: YouTubeVideo;
+    analysis: VideoAnalysis;
+    selectedFrames: number[];
+    extractedAssets: ExtractedAssets;
+    customStory?: string;
+    logoFile?: File | null;
+    characterFile?: File | null;
+    backgroundFile?: File | null;
+    artStyleFile?: File | null;
+    characterFiles?: File[];
+    aspectRatio: '16:9' | '9:16';
+    frameCount: number;
+  }) => {
+    logInfo('Video wizard completed, generating storyboard', {
+      category: 'USER_ACTION',
+      component: 'App',
+      action: 'video-wizard-complete',
+      videoId: data.video.id,
+      frameCount: data.frameCount,
+    });
+
+    setShowVideoWizard(false);
+    setSelectedVideoForWizard(null);
+    setErrorMessage('');
+
+    // Combine video analysis script with custom story
+    const combinedStory = data.customStory
+      ? `${data.analysis.script}\n\n---\n\nCustom Story:\n${data.customStory}`
+      : data.analysis.script;
+
+    // Set form data from wizard
+    setLogoFile(data.logoFile || null);
+    setCharacterFile(data.characterFile || null);
+    setBackgroundFile(data.backgroundFile || null);
+    setArtStyleFile(data.artStyleFile || null);
+    setCharacterFiles(data.characterFiles || []);
+    setAspectRatio(data.aspectRatio);
+    setFrameCount(data.frameCount);
+    setStoryDescription(combinedStory);
+
+    // Set previews if files exist
+    if (data.logoFile) {
+      setLogoPreview(URL.createObjectURL(data.logoFile));
+    }
+    if (data.characterFile) {
+      setCharacterPreview(URL.createObjectURL(data.characterFile));
+    }
+    if (data.backgroundFile) {
+      setBackgroundPreview(URL.createObjectURL(data.backgroundFile));
+    }
+    if (data.artStyleFile) {
+      setArtStylePreview(URL.createObjectURL(data.artStyleFile));
+    }
+    if (data.characterFiles && data.characterFiles.length > 0) {
+      setCharacterPreviews(data.characterFiles.map(f => URL.createObjectURL(f)));
+    }
+
+    // Generate storyboard
+    const mainCharacter = data.characterFiles && data.characterFiles.length > 0
+      ? data.characterFiles[0]
+      : data.characterFile;
+    const additionalCharacters = data.characterFiles && data.characterFiles.length > 1
+      ? data.characterFiles.slice(1)
+      : [];
+
+    // Store video source for adding to storyboard after generation
+    setPendingVideoSource({
+      video: data.video,
+      analysis: data.analysis,
+    });
+
+    await generateStoryboard(
+      data.logoFile || null,
+      mainCharacter || null,
+      combinedStory,
+      data.aspectRatio,
+      additionalCharacters,
+      data.backgroundFile || null,
+      data.artStyleFile || null,
+      data.frameCount
+    );
+  }, [generateStoryboard]);
+
+  const handleVideoWizardCancel = useCallback(() => {
+    setShowVideoWizard(false);
+    setSelectedVideoForWizard(null);
+    setCurrentView('viral-shorts');
+  }, []);
+
   const handleContinueNarrative = useCallback(async (customInstruction?: string) => {
     if (!storyboardData) {
       setErrorMessage("No storyboard to continue from.");
@@ -844,8 +970,17 @@ BOUNDARIES & LOGIC:
             onExport={handleExport}
             onSave={handleSaveProject}
           />
+        ) : showVideoWizard && selectedVideoForWizard ? (
+          <VideoToStoryboardWizard
+            video={selectedVideoForWizard}
+            onComplete={handleVideoWizardComplete}
+            onCancel={handleVideoWizardCancel}
+          />
         ) : (
-          <ViralShortsView onVideoSelect={handleVideoSelect} />
+          <ViralShortsView
+            onVideoSelect={handleVideoSelect}
+            onCreateStoryboard={handleCreateStoryboardFromVideo}
+          />
         )}
         </div>
         <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
