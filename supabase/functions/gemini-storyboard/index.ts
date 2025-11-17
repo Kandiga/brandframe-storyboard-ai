@@ -73,6 +73,21 @@ const PROFESSIONAL_STORY_ARCHITECT_PROMPT = `You are a MASTER SCREENPLAY ARCHITE
 Your mission: Create a Story-World parameterization that serves as the FOUNDATIONAL BLUEPRINT for cinematic excellence.
 
 For the story: "{STORY}"
+{CUSTOM_INSTRUCTION}
+
+═══════════════════════════════════════════════════════════
+CRITICAL: CUSTOM INSTRUCTION PRIORITY
+═══════════════════════════════════════════════════════════
+If a CUSTOM INSTRUCTION is provided above, it takes ABSOLUTE PRIORITY over the base story description.
+The custom instruction represents the user's SPECIFIC DIRECTION and MUST be integrated into EVERY aspect of the Story-World:
+- Premise must reflect the custom instruction
+- Theme must align with the custom instruction
+- Character blueprint must incorporate elements from the custom instruction
+- Core conflict must be shaped by the custom instruction
+- All boundaries and logic must respect the custom instruction
+
+The custom instruction is the USER'S CREATIVE VISION - honor it completely.
+═══════════════════════════════════════════════════════════
 
 Generate a comprehensive Story-World with these components:
 
@@ -147,7 +162,23 @@ const PROFESSIONAL_SCRIPT_PROMPT = `You are now functioning as a LEVEL 9 BROADCA
 
 You have the Story-World blueprint: {STORY_WORLD}
 
-Your task: Generate EXACTLY {SCENE_COUNT} scenes that bring this Story-World to life with CINEMATIC MASTERY.
+{CUSTOM_INSTRUCTION}
+
+═══════════════════════════════════════════════════════════
+CRITICAL: CUSTOM INSTRUCTION PRIORITY
+═══════════════════════════════════════════════════════════
+If a CUSTOM INSTRUCTION is provided above, it takes ABSOLUTE PRIORITY in scene generation.
+The custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION and MUST be reflected in:
+- Scene titles and script lines
+- Character actions and emotions
+- Visual style and cinematography
+- Narrative progression and pacing
+- All visual and narrative elements
+
+EVERY scene must incorporate and reflect the custom instruction. It is the PRIMARY GUIDING FORCE for this storyboard.
+═══════════════════════════════════════════════════════════
+
+Your task: Generate EXACTLY {SCENE_COUNT} scenes that bring this Story-World to life with CINEMATIC MASTERY, while STRICTLY following the custom instruction above.
 
 ## MANDATORY REQUIREMENTS FOR EACH SCENE:
 
@@ -571,7 +602,7 @@ Deno.serve(async (req: Request) => {
         }
       };
 
-      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\nCUSTOM INSTRUCTION: \"${customInstruction}\"` : ''}\n\nGenerate exactly ONE scene with 2 frames (A and B variants) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\nRespond with JSON matching this structure:\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\",\n    \"frames\": [\n      { \"id\": \"${existingStoryboard.scenes.length + 1}A\", \"variant\": \"A\", \"imageUrl\": \"placeholder\", \"metadata\": {} },\n      { \"id\": \"${existingStoryboard.scenes.length + 1}B\", \"variant\": \"B\", \"imageUrl\": \"placeholder\", \"metadata\": {} }\n    ]\n  }]\n}`;
+      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nThe new scene MUST reflect and incorporate this instruction completely.\nEvery element (title, script line, actions, visuals) must align with this instruction.\n═══════════════════════════════════════════════════════════\n` : ''}\n\nGenerate exactly ONE scene with 2 frames (A and B variants) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\nRespond with JSON matching this structure:\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\",\n    \"frames\": [\n      { \"id\": \"${existingStoryboard.scenes.length + 1}A\", \"variant\": \"A\", \"imageUrl\": \"placeholder\", \"metadata\": {} },\n      { \"id\": \"${existingStoryboard.scenes.length + 1}B\", \"variant\": \"B\", \"imageUrl\": \"placeholder\", \"metadata\": {} }\n    ]\n  }]\n}`;
 
       const contResponse = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
@@ -603,7 +634,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const storyWorldStartTime = Date.now();
-    const enhancedStoryWorldPrompt = PROFESSIONAL_STORY_ARCHITECT_PROMPT.replace('{STORY}', story || '');
+    const customInstructionSection = customInstruction 
+      ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\nThis custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY over the base story description.\nIntegrate this instruction into EVERY aspect of the Story-World.\n═══════════════════════════════════════════════════════════\n`
+      : '';
+    
+    const enhancedStoryWorldPrompt = PROFESSIONAL_STORY_ARCHITECT_PROMPT
+      .replace('{STORY}', story || '')
+      .replace('{CUSTOM_INSTRUCTION}', customInstructionSection);
+
+    console.log('Generating Story-World:', {
+      hasCustomInstruction: !!customInstruction,
+      customInstructionLength: customInstruction?.length || 0,
+      storyLength: story?.length || 0
+    });
 
     const storyWorldResponse = await ai.models.generateContent({
       model: 'gemini-2.5-pro',
@@ -639,9 +682,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const scriptStartTime = Date.now();
+    const customInstructionScriptSection = customInstruction
+      ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\nThis custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nEVERY scene must incorporate and reflect this instruction.\n═══════════════════════════════════════════════════════════\n`
+      : '';
+    
     const enhancedScriptPrompt = PROFESSIONAL_SCRIPT_PROMPT
       .replace('{STORY_WORLD}', JSON.stringify(storyWorld))
-      .replace('{SCENE_COUNT}', sceneCount.toString());
+      .replace('{SCENE_COUNT}', sceneCount.toString())
+      .replace('{CUSTOM_INSTRUCTION}', customInstructionScriptSection);
+
+    console.log('Generating Script:', {
+      hasCustomInstruction: !!customInstruction,
+      customInstructionLength: customInstruction?.length || 0,
+      sceneCount
+    });
 
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-2.5-pro',
@@ -857,8 +911,13 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
         mergedAnalysis,
         `${frameIndicator}${scene.scriptLine}\n\n${scene.veoPrompt || scene.sceneContext || ''}`,
         aspectRatio,
-        !!mainCharacter // Pass whether we have a character image
+        !!mainCharacter, // Pass whether we have a character image
+        customInstruction // Pass custom instruction to emphasize in image generation
       );
+      
+      if (customInstruction) {
+        console.log(`[Scene ${scene.id}] Custom instruction included in image generation prompt`);
+      }
       
       // Log prompt building details
       const hasValidCharData = mergedAnalysis.character.clothing.length > 0 ||
