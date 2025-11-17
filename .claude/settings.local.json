@@ -18,10 +18,7 @@
       "Bash(gh repo create:*)",
       "Bash(git remote set-url:*)",
       "Bash(git push:*)",
-      "Bash(git pull:*)",
-      "Bash(git fetch:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nAdd comprehensive video-to-storyboard workflow with AI analysis\n\nThis update introduces a complete pipeline for converting YouTube videos into storyboards:\n\nFeatures:\n- VideoToStoryboardWizard component with multi-step workflow (preview, analysis, frame selection, assets, review)\n- AI-powered video analysis service with Gemini integration for script extraction and scene breakdown\n- Video frame extraction and asset management capabilities\n- Enhanced YouTube service with video style filtering (animation, live-action, whiteboard, etc.)\n- Advanced sorting and filtering options (views, likes, engagement)\n- Video source tracking in storyboards with links back to original content\n- Visual style detection and categorization for trending videos\n\nComponents:\n- VideoToStoryboardWizard: Main wizard orchestrator\n- VideoAnalysisPanel: Displays AI analysis results\n- VideoFrameSelector: Frame selection and preview interface\n- Step components: AnalysisStep, AssetsStep, FrameSelectionStep, ReviewStep, VideoPreviewStep\n\nServices:\n- videoAnalysisService: Handles video analysis via Gemini API\n- videoAssetExtraction: Manages frame extraction and asset processing\n- Enhanced youtubeService with style-based search and filtering\n\nBackend:\n- Supabase Edge Functions for video-analysis and video-asset-extraction\n- YouTube API enhancements for style-based queries\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit:*)"
     ],
     "deny": [],
