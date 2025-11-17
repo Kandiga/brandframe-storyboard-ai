@@ -18,7 +18,6 @@ import { fileToBase64 } from './utils/fileUtils';
 import { createErrorMessage } from './utils/errorHandler';
 import { saveProjectImages } from './utils/fileSystem';
 import { logInfo, logError, logWarn } from './utils/logger.js';
-import { setupGlobalErrorHandlers } from './utils/errorReporter.js';
 
 type View = 'dashboard' | 'my-projects' | 'viral-shorts' | 'mobile-generation';
 
@@ -89,9 +88,8 @@ function App() {
     setVideoWizardSession(state);
   }, []);
   
-  // Setup global error handlers on mount
+  // Log app initialization
   useEffect(() => {
-    setupGlobalErrorHandlers();
     logInfo('App initialized', {
       category: 'SYSTEM',
       component: 'App',

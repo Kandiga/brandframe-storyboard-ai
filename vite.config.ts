@@ -16,12 +16,18 @@ export default defineConfig({
   },
   build: {
     minify: 'esbuild',
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
         },
+        format: 'es',
       },
+    },
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
     },
   },
 });
