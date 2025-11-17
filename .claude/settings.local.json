@@ -26,7 +26,8 @@
       "Bash(npx supabase:*)",
       "Bash(timeout /t 2)",
       "Bash(git checkout:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []
