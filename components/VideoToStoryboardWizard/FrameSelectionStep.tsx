@@ -31,13 +31,19 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
   onArtStyleFrameChange,
   onBackgroundFrameChange,
 }) => {
-  const formatTimestamp = (seconds: number): string => {
+  const formatTimestamp = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined || isNaN(seconds)) {
+      return '0:00';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getThumbnailUrl = (timestamp: number): string => {
+  const getThumbnailUrl = (timestamp: number | null | undefined): string => {
+    if (!video?.id) {
+      return 'https://via.placeholder.com/320x180?text=No+Video';
+    }
     return `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`;
   };
 

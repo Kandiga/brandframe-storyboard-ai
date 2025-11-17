@@ -566,6 +566,88 @@ function App() {
     setSelectedVideoForWizard(null);
     setErrorMessage('');
 
+    const convertImageSourceToFile = async (source: string, filename: string): Promise<File | null> => {
+      if (!source) return null;
+      try {
+        const response = await fetch(source);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image (${response.status})`);
+        }
+        const blob = await response.blob();
+        const extension = blob.type?.split('/')?.[1] || 'png';
+        return new File([blob], `${filename}.${extension}`, { type: blob.type || 'image/png' });
+      } catch (error) {
+        logWarn('Failed to convert image source to file', {
+          category: 'ASSET',
+          component: 'App',
+          action: 'video-wizard-complete',
+          source: source.slice(0, 120),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      }
+    };
+
+    const findMomentThumbnail = (timestamp: number | null | undefined): string | null => {
+      if (timestamp === null || timestamp === undefined || !data.analysis?.keyMoments) {
+        return null;
+      }
+      const tolerance = 0.5;
+      const moment = data.analysis.keyMoments.find(m => Math.abs(m.timestamp - timestamp) <= tolerance);
+      return moment?.thumbnail || null;
+    };
+
+    const fallbackVideoThumbnail =
+      data.video.thumbnail || (data.video.id ? `https://img.youtube.com/vi/${data.video.id}/maxresdefault.jpg` : null);
+
+    let finalArtStyleFile = data.artStyleFile || null;
+    let artStylePreviewSource: string | null = null;
+
+    if (finalArtStyleFile) {
+      artStylePreviewSource = URL.createObjectURL(finalArtStyleFile);
+    } else {
+      const artStyleImageSource =
+        data.extractedAssets?.styleReference?.image ||
+        findMomentThumbnail(data.selectedArtStyleFrame) ||
+        fallbackVideoThumbnail;
+      if (artStyleImageSource) {
+        const convertedArtStyle = await convertImageSourceToFile(artStyleImageSource, 'art-style-reference');
+        if (convertedArtStyle) {
+          finalArtStyleFile = convertedArtStyle;
+          artStylePreviewSource = artStyleImageSource;
+        }
+      }
+    }
+
+    let finalBackgroundFile = data.backgroundFile || null;
+    let backgroundPreviewSource: string | null = null;
+
+    if (finalBackgroundFile) {
+      backgroundPreviewSource = URL.createObjectURL(finalBackgroundFile);
+    } else {
+      let backgroundImageSource: string | null = null;
+      if (data.selectedBackgroundFrame !== null && data.selectedBackgroundFrame !== undefined) {
+        const matchedBackground = data.extractedAssets?.backgrounds?.find(
+          bg => Math.abs(bg.sourceTimestamp - data.selectedBackgroundFrame!) <= 0.5
+        );
+        backgroundImageSource =
+          matchedBackground?.image ||
+          findMomentThumbnail(data.selectedBackgroundFrame);
+      }
+
+      if (!backgroundImageSource) {
+        backgroundImageSource = fallbackVideoThumbnail;
+      }
+
+      if (backgroundImageSource) {
+        const convertedBackground = await convertImageSourceToFile(backgroundImageSource, 'background-reference');
+        if (convertedBackground) {
+          finalBackgroundFile = convertedBackground;
+          backgroundPreviewSource = backgroundImageSource;
+        }
+      }
+    }
+
     // Combine video analysis script with visual style prompt and custom story
     let combinedStory = data.analysis.script;
     
@@ -580,28 +662,22 @@ function App() {
     // Set form data from wizard
     setLogoFile(data.logoFile || null);
     setCharacterFile(data.characterFile || null);
-    setBackgroundFile(data.backgroundFile || null);
-    setArtStyleFile(data.artStyleFile || null);
+    setBackgroundFile(finalBackgroundFile);
+    setArtStyleFile(finalArtStyleFile);
     setCharacterFiles(data.characterFiles || []);
     setAspectRatio(data.aspectRatio);
     setFrameCount(data.frameCount);
     setStoryDescription(combinedStory);
 
-    // Set previews if files exist
-    if (data.logoFile) {
-      setLogoPreview(URL.createObjectURL(data.logoFile));
-    }
-    if (data.characterFile) {
-      setCharacterPreview(URL.createObjectURL(data.characterFile));
-    }
-    if (data.backgroundFile) {
-      setBackgroundPreview(URL.createObjectURL(data.backgroundFile));
-    }
-    if (data.artStyleFile) {
-      setArtStylePreview(URL.createObjectURL(data.artStyleFile));
-    }
+    // Set previews or clear them when files are missing
+    setLogoPreview(data.logoFile ? URL.createObjectURL(data.logoFile) : null);
+    setCharacterPreview(data.characterFile ? URL.createObjectURL(data.characterFile) : null);
+    setBackgroundPreview(backgroundPreviewSource || (finalBackgroundFile ? URL.createObjectURL(finalBackgroundFile) : null));
+    setArtStylePreview(artStylePreviewSource || (finalArtStyleFile ? URL.createObjectURL(finalArtStyleFile) : null));
     if (data.characterFiles && data.characterFiles.length > 0) {
       setCharacterPreviews(data.characterFiles.map(f => URL.createObjectURL(f)));
+    } else {
+      setCharacterPreviews([]);
     }
 
     // Generate storyboard
@@ -624,8 +700,8 @@ function App() {
       combinedStory,
       data.aspectRatio,
       additionalCharacters,
-      data.backgroundFile || null,
-      data.artStyleFile || null,
+      finalBackgroundFile || null,
+      finalArtStyleFile || null,
       data.frameCount
     );
   }, [generateStoryboard]);

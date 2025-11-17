@@ -21,7 +21,10 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
   customStory,
   onCustomStoryChange,
 }) => {
-  const formatTimestamp = (seconds: number): string => {
+  const formatTimestamp = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined || isNaN(seconds)) {
+      return '0:00';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -34,14 +37,20 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         <h3 className="text-lg font-bold text-gray-900 mb-4">Video Summary</h3>
         <div className="flex items-start gap-4">
           <img
-            src={video.thumbnail}
-            alt={video.title}
+            src={video?.thumbnail || 'https://via.placeholder.com/320x180?text=No+Thumbnail'}
+            alt={video?.title || 'Video'}
             className="w-32 h-20 object-cover rounded"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (target.src !== 'https://via.placeholder.com/320x180?text=No+Thumbnail') {
+                target.src = 'https://via.placeholder.com/320x180?text=No+Thumbnail';
+              }
+            }}
           />
           <div className="flex-1">
-            <h4 className="font-semibold text-gray-900">{video.title}</h4>
-            <p className="text-sm text-gray-600 mt-1">{video.channelName}</p>
-            <p className="text-xs text-gray-500 mt-2">{video.viewCount.toLocaleString()} views</p>
+            <h4 className="font-semibold text-gray-900">{video?.title || 'Unknown Video'}</h4>
+            <p className="text-sm text-gray-600 mt-1">{video?.channelName || 'Unknown Channel'}</p>
+            <p className="text-xs text-gray-500 mt-2">{video?.viewCount ? video.viewCount.toLocaleString() : '0'} views</p>
           </div>
         </div>
       </div>
@@ -57,11 +66,17 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             </div>
             {formData.selectedArtStyleFrame !== null && formData.selectedArtStyleFrame !== undefined ? (
               <>
-                <img
-                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
-                  alt="Art Style Frame"
-                  className="w-full h-32 object-cover"
-                />
+              <img
+                src={video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : 'https://via.placeholder.com/320x180?text=No+Frame'}
+                alt="Art Style Frame"
+                className="w-full h-32 object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('placeholder')) {
+                    target.src = 'https://via.placeholder.com/320x180?text=Frame+Not+Available';
+                  }
+                }}
+              />
                 <div className="p-2">
                   <p className="text-xs font-semibold text-indigo-700">Selected</p>
                   <p className="text-xs text-indigo-600">{formatTimestamp(formData.selectedArtStyleFrame)}</p>
@@ -81,11 +96,17 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             </div>
             {formData.selectedBackgroundFrame !== null && formData.selectedBackgroundFrame !== undefined ? (
               <>
-                <img
-                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
-                  alt="Background Frame"
-                  className="w-full h-32 object-cover"
-                />
+              <img
+                src={video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : 'https://via.placeholder.com/320x180?text=No+Frame'}
+                alt="Background Frame"
+                className="w-full h-32 object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('placeholder')) {
+                    target.src = 'https://via.placeholder.com/320x180?text=Frame+Not+Available';
+                  }
+                }}
+              />
                 <div className="p-2">
                   <p className="text-xs font-semibold text-green-700">Selected</p>
                   <p className="text-xs text-green-600">{formatTimestamp(formData.selectedBackgroundFrame)}</p>
@@ -119,11 +140,17 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {selectedFrames.map((timestamp, index) => (
               <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
-                <img
-                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
-                  alt={`Frame ${index + 1}`}
-                  className="w-full h-24 object-cover"
-                />
+              <img
+                src={video?.id ? `https://img.youtube.com/vi/${video.id}/mqdefault.jpg` : 'https://via.placeholder.com/320x180?text=No+Frame'}
+                alt={`Frame ${index + 1}`}
+                className="w-full h-24 object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('placeholder')) {
+                    target.src = 'https://via.placeholder.com/320x180?text=Frame+Not+Available';
+                  }
+                }}
+              />
                 <div className="p-2">
                   <p className="text-xs font-semibold text-gray-700">Frame {index + 1}</p>
                   <p className="text-xs text-gray-500">{formatTimestamp(timestamp)}</p>

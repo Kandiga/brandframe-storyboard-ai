@@ -19,7 +19,12 @@
       "Bash(git remote set-url:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(supabase:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase functions deploy:*)",
+      "Bash(npx supabase:*)",
+      "Bash(timeout /t 2)"
     ],
     "deny": [],
     "ask": []
