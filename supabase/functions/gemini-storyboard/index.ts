@@ -877,6 +877,16 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
       const generateFrame = async (variant: 'A' | 'B', maxRetries: number = 3): Promise<string> => {
         for (let attempt = 0; attempt < maxRetries; attempt++) {
           try {
+            // Add exponential backoff delay before retry (except for first attempt)
+            if (attempt > 0) {
+              const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+              console.log(`[Scene ${scene.id}${variant}] Waiting ${backoffDelay}ms before retry (attempt ${attempt + 1}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            }
+
+            const frameStartTime = Date.now();
+            console.log(`[Scene ${scene.id}${variant}] Generating frame (attempt ${attempt + 1}/${maxRetries})...`);
+            
             const imageResponse = await ai.models.generateContent({
               model: 'gemini-2.5-flash-image',
               contents: { parts: imageGenParts },
@@ -887,6 +897,9 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
                 },
               },
             });
+
+            const generationDuration = Date.now() - frameStartTime;
+            console.log(`[Scene ${scene.id}${variant}] API response received (${generationDuration}ms)`);
 
             const firstPart = imageResponse.candidates?.[0]?.content?.parts?.[0];
             if (firstPart && 'inlineData' in firstPart && firstPart.inlineData) {
@@ -942,12 +955,45 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
                 console.log(`[Scene ${scene.id}${variant}] No character image provided, skipping consistency validation`);
               }
 
+              console.log(`[Scene ${scene.id}${variant}] ✓ Frame generated successfully`);
               return generatedImage;
             }
-            throw new Error('No image data in response');
-          } catch (error) {
-            console.error(`Frame generation error for scene ${scene.id}${variant} (attempt ${attempt + 1}):`, error);
+            
+            // No image data in response
+            const errorMsg = 'No image data in response from API';
+            console.error(`[Scene ${scene.id}${variant}] ${errorMsg}:`, {
+              hasCandidates: !!imageResponse.candidates,
+              candidatesCount: imageResponse.candidates?.length || 0,
+              hasFirstPart: !!imageResponse.candidates?.[0]?.content?.parts?.[0],
+              responseStructure: JSON.stringify(imageResponse).substring(0, 200)
+            });
+            throw new Error(errorMsg);
+          } catch (error: any) {
+            const errorMessage = error?.message || String(error);
+            const errorCode = error?.code || error?.status || 'UNKNOWN';
+            const isRateLimit = errorMessage.includes('429') || errorMessage.includes('rate limit') || errorMessage.includes('quota') || errorCode === 429;
+            const isServiceUnavailable = errorMessage.includes('503') || errorMessage.includes('service unavailable') || errorCode === 503;
+            const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('TIMEOUT');
+            
+            console.error(`[Scene ${scene.id}${variant}] Frame generation error (attempt ${attempt + 1}/${maxRetries}):`, {
+              error: errorMessage,
+              errorCode,
+              isRateLimit,
+              isServiceUnavailable,
+              isTimeout,
+              errorType: error?.constructor?.name || typeof error,
+              stack: error?.stack?.substring(0, 300)
+            });
+
+            // If it's a rate limit or service unavailable, use longer backoff
+            if ((isRateLimit || isServiceUnavailable) && attempt < maxRetries - 1) {
+              const rateLimitDelay = Math.min(5000 * (attempt + 1), 30000); // Up to 30 seconds for rate limits
+              console.warn(`[Scene ${scene.id}${variant}] Rate limit or service unavailable detected. Waiting ${rateLimitDelay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+            }
+
             if (attempt === maxRetries - 1) {
+              console.error(`[Scene ${scene.id}${variant}] ✗ All retry attempts exhausted. Frame generation failed.`);
               return "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iIzMzMzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+RXJyb3I8L3RleHQ+PC9zdmc+";
             }
           }
@@ -959,6 +1005,13 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
         generateFrame('A'),
         generateFrame('B')
       ]);
+
+      // Add delay between scenes to prevent rate limiting (except for last scene)
+      if (i < scenes.length - 1) {
+        const interSceneDelay = 2000; // 2 seconds between scenes
+        console.log(`[Scene ${scene.id}] Waiting ${interSceneDelay}ms before next scene to prevent rate limiting...`);
+        await new Promise(resolve => setTimeout(resolve, interSceneDelay));
+      }
 
       scene.frames = [
         {
