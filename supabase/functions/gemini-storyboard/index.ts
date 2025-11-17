@@ -607,7 +607,7 @@ Deno.serve(async (req: Request) => {
         }
       };
 
-      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nThe new scene MUST reflect and incorporate this instruction completely.\nEvery element (title, script line, actions, visuals) must align with this instruction.\n═══════════════════════════════════════════════════════════\n` : ''}\n\nGenerate exactly ONE scene with 2 frames (A and B variants) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\nRespond with JSON matching this structure:\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\"\n  }]\n}`;
+      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nThe new scene MUST reflect and incorporate this instruction completely.\nEvery element (title, script line, actions, visuals) must align with this instruction.\n═══════════════════════════════════════════════════════════\n` : ''}\n\nGenerate exactly ONE scene metadata (NOT frames) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\n⚠️ IMPORTANT: Do NOT include a "frames" array in your response. Frames will be generated separately using image generation models.\n\nRespond with JSON matching this structure EXACTLY (no additional fields):\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\"\n  }]\n}`;
 
       const contResponse = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
@@ -620,7 +620,26 @@ Deno.serve(async (req: Request) => {
       const responseText = contResponse.text || JSON.stringify(contResponse);
       const scriptData = JSON.parse(responseText);
       let newScenes = scriptData.scenes || [];
-      
+
+      // FIX: Strip any frames that Gemini might have added to the continuation response
+      // Frames will be generated in the image generation loop below
+      console.log('[CONTINUATION DEBUG] Scenes before stripping frames:', JSON.stringify(newScenes.map(s => ({
+        id: s.id,
+        hasFrames: !!s.frames,
+        frameCount: s.frames?.length || 0,
+        firstFrameImageUrl: s.frames?.[0]?.imageUrl?.substring(0, 50) || 'N/A'
+      }))));
+
+      newScenes = newScenes.map(scene => {
+        const { frames, ...sceneWithoutFrames } = scene;
+        if (frames) {
+          console.log(`[CONTINUATION DEBUG] Stripped ${frames.length} placeholder frames from scene ${scene.id}`);
+        }
+        return sceneWithoutFrames;
+      });
+
+      console.log('[CONTINUATION DEBUG] Scenes after stripping frames - all scenes should have NO frames now');
+
       if (newScenes.length === 0) {
         console.error('No scenes generated in continuation');
         return new Response(
@@ -837,8 +856,18 @@ Deno.serve(async (req: Request) => {
 
     let previousFrameImage: string | null = null;
 
+    console.log(`[IMAGE GENERATION DEBUG] Starting image generation loop for ${scenes.length} scene(s)${isContinue ? ' (CONTINUATION MODE)' : ''}`);
+    console.log(`[IMAGE GENERATION DEBUG] Scenes to process:`, scenes.map(s => ({
+      id: s.id,
+      title: s.title,
+      hasFrames: !!s.frames,
+      frameCount: s.frames?.length || 0
+    })));
+
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
+      console.log(`[IMAGE GENERATION DEBUG] Processing scene ${i + 1}/${scenes.length}: Scene ${scene.id} - "${scene.title}"`);
+      console.log(`[IMAGE GENERATION DEBUG] Scene ${scene.id} has frames BEFORE generation:`, !!scene.frames);
       const imageGenParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
 
       // CRITICAL: Character reference MUST come first for maximum emphasis
@@ -1114,6 +1143,10 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
         await new Promise(resolve => setTimeout(resolve, interSceneDelay));
       }
 
+      console.log(`[IMAGE GENERATION DEBUG] Assigning frames to scene ${scene.id}...`);
+      console.log(`[IMAGE GENERATION DEBUG] Frame A imageUrl length: ${imageUrlA?.length || 0}, starts with 'data:image/': ${imageUrlA?.startsWith('data:image/') || false}`);
+      console.log(`[IMAGE GENERATION DEBUG] Frame B imageUrl length: ${imageUrlB?.length || 0}, starts with 'data:image/': ${imageUrlB?.startsWith('data:image/') || false}`);
+
       scene.frames = [
         {
           id: `${scene.id}A`,
@@ -1138,7 +1171,18 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
           },
         },
       ];
+
+      console.log(`[IMAGE GENERATION DEBUG] Scene ${scene.id} frames assigned successfully!`);
+      console.log(`[IMAGE GENERATION DEBUG] Scene ${scene.id} now has ${scene.frames.length} frames:`, scene.frames.map(f => ({
+        id: f.id,
+        variant: f.variant,
+        hasImageUrl: !!f.imageUrl,
+        imageUrlLength: f.imageUrl?.length || 0,
+        imageUrlPrefix: f.imageUrl?.substring(0, 30) || 'N/A'
+      })));
     }
+
+    console.log(`[IMAGE GENERATION DEBUG] Image generation loop completed for all ${scenes.length} scene(s)`);
 
     const imagesDuration = Date.now() - imagesStartTime;
     const totalDuration = Date.now() - startTime;
@@ -1181,6 +1225,35 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
       }
 
       console.log(`Narrative continuation complete: ${scenes.length} new scene(s), ${totalRegenerations} regenerations, ${totalDuration}ms total`);
+
+      // FIX: Validate that all frames have valid imageUrls before returning
+      console.log('[CONTINUATION DEBUG] Validating frames before return...');
+      for (const scene of scenes) {
+        if (!scene.frames || scene.frames.length === 0) {
+          console.error(`[CONTINUATION ERROR] Scene ${scene.id} has no frames!`);
+          throw new Error(`Scene ${scene.id} missing frames - image generation may have failed`);
+        }
+
+        for (const frame of scene.frames) {
+          if (!frame.imageUrl || frame.imageUrl === 'placeholder') {
+            console.error(`[CONTINUATION ERROR] Frame ${frame.id} has invalid imageUrl: "${frame.imageUrl}"`);
+            console.error(`[CONTINUATION ERROR] Frame data:`, JSON.stringify({
+              id: frame.id,
+              variant: frame.variant,
+              imageUrlLength: frame.imageUrl?.length || 0,
+              imageUrlPreview: frame.imageUrl?.substring(0, 100) || 'N/A'
+            }));
+            throw new Error(`Frame ${frame.id} has invalid imageUrl - expected base64 image but got "${frame.imageUrl}"`);
+          }
+
+          if (!frame.imageUrl.startsWith('data:image/')) {
+            console.error(`[CONTINUATION ERROR] Frame ${frame.id} imageUrl doesn't start with 'data:image/'`);
+            console.error(`[CONTINUATION ERROR] imageUrl preview: ${frame.imageUrl.substring(0, 100)}`);
+            throw new Error(`Frame ${frame.id} has malformed imageUrl - must be base64 data URI`);
+          }
+        }
+      }
+      console.log('[CONTINUATION DEBUG] All frames validated successfully! All frames have valid base64 imageUrls.');
 
       return new Response(
         JSON.stringify({
