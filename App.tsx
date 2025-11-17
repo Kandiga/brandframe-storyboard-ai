@@ -67,6 +67,20 @@ function App() {
   const [recoveryDraft, setRecoveryDraft] = useState<StoryboardDraft | null>(null);
   const { drafts, loadDraft, deleteDraft } = useDrafts();
 
+  // Wrapper to log view changes - defined early so other callbacks can use it
+  const setCurrentView = useCallback((view: View) => {
+    if (view !== currentView) {
+      logInfo('View changed', {
+        category: 'USER_ACTION',
+        component: 'App',
+        action: 'view-change',
+        from: currentView,
+        to: view,
+      });
+    }
+    setCurrentViewState(view);
+  }, [currentView]);
+
   const resetVideoWizardState = useCallback(() => {
     setVideoWizardSession(null);
     setVideoWizardSessionId(null);
@@ -137,20 +151,6 @@ function App() {
       });
     }
   }, [drafts, storyboardData]);
-
-  // Wrapper to log view changes
-  const setCurrentView = useCallback((view: View) => {
-    if (view !== currentView) {
-      logInfo('View changed', {
-        category: 'USER_ACTION',
-        component: 'App',
-        action: 'view-change',
-        from: currentView,
-        to: view,
-      });
-    }
-    setCurrentViewState(view);
-  }, [currentView]);
 
   const handleLogoChange = (file: File | null) => {
     if (logoPreview && logoPreview.startsWith('blob:')) {
