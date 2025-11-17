@@ -510,20 +510,6 @@ function App() {
     deleteProject(projectId);
   }, [deleteProject]);
 
-  const handleVideoSelect = useCallback((video: YouTubeVideo) => {
-    logInfo('Video selected for story inspiration - opening wizard', {
-      category: 'USER_ACTION',
-      component: 'App',
-      action: 'select-video',
-      videoId: video.id,
-      videoTitle: video.title,
-    });
-    
-    // Open the wizard instead of just navigating to dashboard
-    // This allows the user to go through the full 5-step workflow
-    handleCreateStoryboardFromVideo(video);
-  }, [handleCreateStoryboardFromVideo]);
-
   const handleCreateStoryboardFromVideo = useCallback((video: YouTubeVideo) => {
     logInfo('Creating storyboard from video', {
       category: 'USER_ACTION',
@@ -536,6 +522,20 @@ function App() {
     setShowVideoWizard(true);
     setCurrentView('dashboard');
   }, []);
+
+  const handleVideoSelect = useCallback((video: YouTubeVideo) => {
+    logInfo('Video selected for story inspiration - opening wizard', {
+      category: 'USER_ACTION',
+      component: 'App',
+      action: 'select-video',
+      videoId: video.id,
+      videoTitle: video.title,
+    });
+
+    // Open the wizard instead of just navigating to dashboard
+    // This allows the user to go through the full 5-step workflow
+    handleCreateStoryboardFromVideo(video);
+  }, [handleCreateStoryboardFromVideo]);
 
   const handleVideoWizardComplete = useCallback(async (data: {
     video: YouTubeVideo;
