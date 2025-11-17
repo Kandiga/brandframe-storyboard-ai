@@ -44,7 +44,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    const path = url.pathname.replace(/^\/youtube-api\/?/, "");
+    // Handle both local (/youtube-api/...) and deployed (/functions/v1/youtube-api/...) paths
+    const path = url.pathname.replace(/^.*\/youtube-api\/?/, "");
     const apiKey = Deno.env.get("YOUTUBE_API_KEY");
 
     if (!apiKey) {
