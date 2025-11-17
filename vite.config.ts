@@ -13,5 +13,15 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, '.'),
     }
-  }
+  },
+  build: {
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+        },
+      },
+    },
+  },
 });
