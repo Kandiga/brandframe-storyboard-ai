@@ -24,7 +24,9 @@
       "Bash(npx supabase --version)",
       "Bash(npx supabase functions deploy:*)",
       "Bash(npx supabase:*)",
-      "Bash(timeout /t 2)"
+      "Bash(timeout /t 2)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
