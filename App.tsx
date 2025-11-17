@@ -972,11 +972,13 @@ BOUNDARIES & LOGIC:
             onSave={handleSaveProject}
           />
         ) : showVideoWizard && selectedVideoForWizard ? (
-          <VideoToStoryboardWizard
-            video={selectedVideoForWizard}
-            onComplete={handleVideoWizardComplete}
-            onCancel={handleVideoWizardCancel}
-          />
+          <ErrorBoundary componentName="VideoToStoryboardWizard">
+            <VideoToStoryboardWizard
+              video={selectedVideoForWizard}
+              onComplete={handleVideoWizardComplete}
+              onCancel={handleVideoWizardCancel}
+            />
+          </ErrorBoundary>
         ) : (
           <ViralShortsView
             onVideoSelect={handleVideoSelect}

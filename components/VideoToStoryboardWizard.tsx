@@ -254,9 +254,12 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
     );
   }
 
+  // Ensure we have valid step titles
+  const stepTitles = STEP_TITLES && STEP_TITLES.length === 5 ? STEP_TITLES : ['Video Preview', 'Analysis', 'Frame Selection', 'Assets', 'Review'];
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      <WizardProgress currentStep={currentStep} totalSteps={5} stepTitles={STEP_TITLES} />
+      <WizardProgress currentStep={currentStep} totalSteps={5} stepTitles={stepTitles} />
 
       <div className="flex-1 overflow-y-auto pb-32">
         {error && (
