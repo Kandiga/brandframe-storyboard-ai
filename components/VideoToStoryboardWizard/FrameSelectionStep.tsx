@@ -86,7 +86,7 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           Choose one frame that best represents the visual art style you want to use.
         </p>
-        {analysis && analysis.keyMoments && analysis.keyMoments.length > 0 && (
+        {analysis?.keyMoments && Array.isArray(analysis.keyMoments) && analysis.keyMoments.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {analysis.keyMoments.map((moment, index) => {
               const isSelected = selectedArtStyleFrame === moment.timestamp;
@@ -138,7 +138,7 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
         <p className="text-sm text-gray-600 mb-4">
           Choose one frame that best represents the background/environment you want to use.
         </p>
-        {analysis && analysis.keyMoments && analysis.keyMoments.length > 0 && (
+        {analysis?.keyMoments && Array.isArray(analysis.keyMoments) && analysis.keyMoments.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {analysis.keyMoments.map((moment, index) => {
               const isSelected = selectedBackgroundFrame === moment.timestamp;

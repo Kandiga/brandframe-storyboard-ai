@@ -99,6 +99,9 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
         videoId: video.id,
       });
       const result = await analyzeVideo(video.id);
+      if (!result) {
+        throw new Error('Analysis returned no result');
+      }
       setAnalysis(result);
       // Initialize visualStylePrompt from analysis
       if (result.visualStyle) {
@@ -109,18 +112,20 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
         if (result.visualStyle.lighting) {
           visualStyleParts.push(`Lighting: ${result.visualStyle.lighting}`);
         }
-        if (result.visualStyle.dominantColors && result.visualStyle.dominantColors.length > 0) {
+        if (result.visualStyle.dominantColors && Array.isArray(result.visualStyle.dominantColors) && result.visualStyle.dominantColors.length > 0) {
           visualStyleParts.push(`Colors: ${result.visualStyle.dominantColors.join(', ')}`);
         }
         const visualStylePrompt = visualStyleParts.join('\n');
         setFormData(prev => ({ ...prev, visualStylePrompt }));
       }
       // Auto-select frames from suggested storyboard
-      if (result.suggestedStoryboard?.scenes) {
-        const frames = result.suggestedStoryboard.scenes
-          .slice(0, formData.frameCount)
-          .map(s => s.timestamp);
-        setFormData(prev => ({ ...prev, selectedFrames: frames }));
+      if (result.suggestedStoryboard?.scenes && Array.isArray(result.suggestedStoryboard.scenes)) {
+        setFormData(prev => {
+          const frames = result.suggestedStoryboard.scenes
+            .slice(0, prev.frameCount)
+            .map(s => s.timestamp);
+          return { ...prev, selectedFrames: frames };
+        });
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze video';
@@ -133,7 +138,7 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
     } finally {
       setIsAnalyzing(false);
     }
-  }, [video.id, formData.frameCount]);
+  }, [video.id]);
 
   // Auto-analyze video when reaching step 2
   useEffect(() => {
@@ -234,6 +239,20 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
         return false;
     }
   };
+
+  // Safety check after hooks
+  if (!video || !video.id) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <p className="text-red-600">Error: Invalid video data</p>
+          <button onClick={onCancel} className="mt-4 px-4 py-2 bg-gray-200 rounded">
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
