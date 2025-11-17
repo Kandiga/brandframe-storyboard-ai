@@ -160,13 +160,20 @@ Please provide a JSON response with the following structure:
         "title": "Scene title",
         "scriptLine": "Key dialogue or action",
         "timestamp": 15.0,
-        "thumbnail": "Description or URL"
+        "thumbnail": "Description or URL",
+        "framePosition": "first" | "middle" | "last"
       }
     ]
   }
 }
 
-Extract 4-8 key moments evenly distributed throughout the video. Identify main characters and backgrounds. Suggest 4-6 scenes for a storyboard.`;
+Extract 4-8 key moments evenly distributed throughout the video. Identify main characters and backgrounds. Suggest 4-6 scenes for a storyboard.
+
+IMPORTANT: For suggestedStoryboard.scenes:
+- The FIRST scene (index 0) must have "framePosition": "first" - this is the opening shot
+- The LAST scene (final index) must have "framePosition": "last" - this is the closing shot
+- All middle scenes should have "framePosition": "middle"
+- Frame position indicators help with Veo 3.1 prompt generation and narrative structure.`;
 
     const analysisResult = await model.generateContent(analysisPrompt);
     const analysisText = analysisResult.response.text();
@@ -215,11 +222,13 @@ Extract 4-8 key moments evenly distributed throughout the video. Identify main c
       thumbnail: moment.thumbnail || thumbnailUrl,
     }));
 
-    // Enhance suggested scenes with thumbnails
+    // Enhance suggested scenes with thumbnails and frame positions
     if (analysis.suggestedStoryboard && analysis.suggestedStoryboard.scenes) {
-      analysis.suggestedStoryboard.scenes = analysis.suggestedStoryboard.scenes.map((scene: any) => ({
+      const scenes = analysis.suggestedStoryboard.scenes;
+      analysis.suggestedStoryboard.scenes = scenes.map((scene: any, index: number) => ({
         ...scene,
         thumbnail: scene.thumbnail || thumbnailUrl,
+        framePosition: scene.framePosition || (index === 0 ? 'first' : index === scenes.length - 1 ? 'last' : 'middle'),
       }));
     }
 

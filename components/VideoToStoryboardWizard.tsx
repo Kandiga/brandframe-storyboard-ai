@@ -79,20 +79,6 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
     selectedFrames: [],
   });
 
-  // Auto-analyze video when reaching step 2
-  useEffect(() => {
-    if (currentStep === 2 && !analysis && !isAnalyzing) {
-      handleAnalyzeVideo();
-    }
-  }, [currentStep]);
-
-  // Auto-extract assets when frames are selected
-  useEffect(() => {
-    if (currentStep === 4 && formData.selectedFrames.length > 0 && !extractedAssets && !isExtracting) {
-      handleExtractAssets();
-    }
-  }, [currentStep, formData.selectedFrames]);
-
   const handleAnalyzeVideo = useCallback(async () => {
     setIsAnalyzing(true);
     setError(null);
@@ -125,6 +111,13 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
     }
   }, [video.id, formData.frameCount]);
 
+  // Auto-analyze video when reaching step 2
+  useEffect(() => {
+    if (currentStep === 2 && !analysis && !isAnalyzing) {
+      handleAnalyzeVideo();
+    }
+  }, [currentStep, analysis, isAnalyzing, handleAnalyzeVideo]);
+
   const handleExtractAssets = useCallback(async () => {
     if (formData.selectedFrames.length === 0) return;
     setIsExtracting(true);
@@ -151,6 +144,13 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
       setIsExtracting(false);
     }
   }, [video.id, formData.selectedFrames]);
+
+  // Auto-extract assets when frames are selected
+  useEffect(() => {
+    if (currentStep === 4 && formData.selectedFrames.length > 0 && !extractedAssets && !isExtracting) {
+      handleExtractAssets();
+    }
+  }, [currentStep, formData.selectedFrames, extractedAssets, isExtracting, handleExtractAssets]);
 
   const handleNext = useCallback(() => {
     if (currentStep < 5) {

@@ -139,9 +139,23 @@ export function buildEnhancedConsistencyPrompt(
   const architectureList = visualAnalysis.environment.architecture.join(', ');
   const colorPalette = visualAnalysis.environment.colorPalette.join(', ');
 
-  return `Generate a professional cinematic ${aspectRatio} image with ABSOLUTE CONSISTENCY to these specifications:
+  // Extract frame position indicators
+  const isFirstFrame = sceneDescription.includes('[FIRST FRAME - OPENING SHOT]');
+  const isLastFrame = sceneDescription.includes('[LAST FRAME - CLOSING SHOT]');
+  const cleanDescription = sceneDescription
+    .replace(/\[FIRST FRAME - OPENING SHOT\]\s*/g, '')
+    .replace(/\[LAST FRAME - CLOSING SHOT\]\s*/g, '');
 
-${sceneDescription}
+  let framePositionNote = '';
+  if (isFirstFrame) {
+    framePositionNote = '\n[FRAME POSITION: FIRST FRAME - OPENING SHOT]\nThis is the opening frame. Establish visual tone, introduce main character/setting, create strong opening hook.\n';
+  } else if (isLastFrame) {
+    framePositionNote = '\n[FRAME POSITION: LAST FRAME - CLOSING SHOT]\nThis is the closing frame. Provide resolution, emotional closure, memorable final image.\n';
+  }
+
+  return `Generate a professional cinematic ${aspectRatio} image with ABSOLUTE CONSISTENCY to these specifications:
+${framePositionNote}
+${cleanDescription}
 
 ═══════════════════════════════════════════════════════════
 MANDATORY VISUAL CONSISTENCY REQUIREMENTS - DO NOT DEVIATE

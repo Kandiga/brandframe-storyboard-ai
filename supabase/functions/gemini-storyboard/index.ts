@@ -204,6 +204,13 @@ Your task: Generate EXACTLY {SCENE_COUNT} scenes that bring this Story-World to 
 - Use proper prompt syntax for Veo 3.1
 - Maximum 500 characters (Veo limit)
 - Focus on VISUAL clarity and CINEMATIC precision
+- **FIRST FRAME (Scene 1)**: Must include "[FIRST FRAME - OPENING SHOT]" indicator - establish visual tone, introduce main character/setting, create strong opening hook
+- **LAST FRAME (Final Scene)**: Must include "[LAST FRAME - CLOSING SHOT]" indicator - provide resolution, emotional closure, memorable final image
+
+## FRAME POSITION INDICATORS:
+- Scene 1 (first scene): Add "[FIRST FRAME - OPENING SHOT]" prefix to veoPrompt
+- Last scene: Add "[LAST FRAME - CLOSING SHOT]" prefix to veoPrompt
+- These indicators help Veo 3.1 understand narrative structure and frame positioning
 
 ## OUTPUT FORMAT:
 Respond with ONLY valid JSON:
@@ -789,9 +796,19 @@ Deno.serve(async (req: Request) => {
         }
       };
 
+      // Add frame position indicators for Veo 3.1
+      const isFirstFrame = i === 0;
+      const isLastFrame = i === scenes.length - 1;
+      let frameIndicator = '';
+      if (isFirstFrame) {
+        frameIndicator = '[FIRST FRAME - OPENING SHOT] ';
+      } else if (isLastFrame) {
+        frameIndicator = '[LAST FRAME - CLOSING SHOT] ';
+      }
+
       const enhancedPrompt = buildEnhancedConsistencyPrompt(
         mergedAnalysis,
-        `${scene.scriptLine}\n\n${scene.veoPrompt || scene.sceneContext || ''}`,
+        `${frameIndicator}${scene.scriptLine}\n\n${scene.veoPrompt || scene.sceneContext || ''}`,
         aspectRatio
       );
 
