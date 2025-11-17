@@ -511,7 +511,7 @@ function App() {
   }, [deleteProject]);
 
   const handleVideoSelect = useCallback((video: YouTubeVideo) => {
-    logInfo('Video selected for story inspiration', {
+    logInfo('Video selected for story inspiration - opening wizard', {
       category: 'USER_ACTION',
       component: 'App',
       action: 'select-video',
@@ -519,18 +519,10 @@ function App() {
       videoTitle: video.title,
     });
     
-    // Populate story description with video title and description
-    const storyText = `${video.title}\n\n${video.description || ''}\n\nInspired by: ${video.url}`;
-    setStoryDescription(storyText);
-    // Navigate to dashboard
-    setCurrentView('dashboard');
-    // Optionally set video thumbnail as character reference
-    if (video.thumbnail) {
-      // Convert thumbnail URL to blob/file if needed
-      // For now, we'll just use the URL directly
-      setCharacterPreview(video.thumbnail);
-    }
-  }, []);
+    // Open the wizard instead of just navigating to dashboard
+    // This allows the user to go through the full 5-step workflow
+    handleCreateStoryboardFromVideo(video);
+  }, [handleCreateStoryboardFromVideo]);
 
   const handleCreateStoryboardFromVideo = useCallback((video: YouTubeVideo) => {
     logInfo('Creating storyboard from video', {
@@ -558,6 +550,9 @@ function App() {
     characterFiles?: File[];
     aspectRatio: '16:9' | '9:16';
     frameCount: number;
+    visualStylePrompt?: string;
+    selectedArtStyleFrame?: number | null;
+    selectedBackgroundFrame?: number | null;
   }) => {
     logInfo('Video wizard completed, generating storyboard', {
       category: 'USER_ACTION',
@@ -571,10 +566,16 @@ function App() {
     setSelectedVideoForWizard(null);
     setErrorMessage('');
 
-    // Combine video analysis script with custom story
-    const combinedStory = data.customStory
-      ? `${data.analysis.script}\n\n---\n\nCustom Story:\n${data.customStory}`
-      : data.analysis.script;
+    // Combine video analysis script with visual style prompt and custom story
+    let combinedStory = data.analysis.script;
+    
+    if (data.visualStylePrompt) {
+      combinedStory = `${combinedStory}\n\n---\n\nVisual Style:\n${data.visualStylePrompt}`;
+    }
+    
+    if (data.customStory) {
+      combinedStory = `${combinedStory}\n\n---\n\nCustom Story:\n${data.customStory}`;
+    }
 
     // Set form data from wizard
     setLogoFile(data.logoFile || null);

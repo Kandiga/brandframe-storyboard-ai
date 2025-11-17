@@ -76,12 +76,51 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Route: /video-categories
+    if (path === "video-categories") {
+      const regionCode = url.searchParams.get("regionCode") || "US";
+      
+      const categoriesUrl = `${YOUTUBE_API_BASE_URL}/videoCategories?part=snippet&regionCode=${regionCode}&key=${apiKey}`;
+      const categoriesResponse = await fetch(categoriesUrl);
+      const categoriesData = await categoriesResponse.json();
+
+      if (!categoriesData.items || categoriesData.items.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, categories: [] }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      const categories = categoriesData.items
+        .filter((item: any) => item.snippet.assignable) // Only include assignable categories
+        .map((item: any) => ({
+          id: item.id,
+          title: item.snippet.title,
+        }));
+
+      return new Response(
+        JSON.stringify({ success: true, categories }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
     // Route: /search-by-style
     if (path === "search-by-style") {
       const style = url.searchParams.get("style") || "shorts";
       const query = url.searchParams.get("query") || "";
       const limit = parseInt(url.searchParams.get("limit") || "20");
       const sortBy = url.searchParams.get("sortBy") || "relevance";
+      const categoryId = url.searchParams.get("categoryId");
 
       const styleParams = getStyleParams(style);
       let searchQuery = query.trim();
@@ -96,6 +135,11 @@ Deno.serve(async (req: Request) => {
       
       if (styleParams.videoDuration) {
         searchUrl += `&videoDuration=${styleParams.videoDuration}`;
+      }
+
+      // Add category filter if provided
+      if (categoryId) {
+        searchUrl += `&videoCategoryId=${categoryId}`;
       }
 
       // Add order parameter
@@ -182,6 +226,7 @@ Deno.serve(async (req: Request) => {
       const limit = parseInt(url.searchParams.get("limit") || "20");
       const query = url.searchParams.get("query") || "";
       const style = url.searchParams.get("style") || "shorts";
+      const categoryId = url.searchParams.get("categoryId");
 
       const styleParams = getStyleParams(style);
       let searchQuery = query.trim();
@@ -196,6 +241,11 @@ Deno.serve(async (req: Request) => {
       
       if (styleParams.videoDuration) {
         searchUrl += `&videoDuration=${styleParams.videoDuration}`;
+      }
+
+      // Add category filter if provided
+      if (categoryId) {
+        searchUrl += `&videoCategoryId=${categoryId}`;
       }
 
       const searchResponse = await fetch(searchUrl);

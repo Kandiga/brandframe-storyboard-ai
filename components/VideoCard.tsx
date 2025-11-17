@@ -111,6 +111,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect, onCreateStoryboa
         video={video}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onCreateStoryboard={onCreateStoryboard}
       />
     </>
   );

@@ -27,6 +27,9 @@ interface VideoToStoryboardWizardProps {
     characterFiles?: File[];
     aspectRatio: '16:9' | '9:16';
     frameCount: number;
+    visualStylePrompt?: string;
+    selectedArtStyleFrame?: number | null;
+    selectedBackgroundFrame?: number | null;
   }) => void;
   onCancel: () => void;
 }
@@ -48,6 +51,9 @@ export interface VideoWizardFormData {
   aspectRatio: '16:9' | '9:16';
   frameCount: number;
   selectedFrames: number[];
+  visualStylePrompt: string;
+  selectedArtStyleFrame: number | null;
+  selectedBackgroundFrame: number | null;
 }
 
 const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
@@ -77,6 +83,9 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
     aspectRatio: '16:9',
     frameCount: 4,
     selectedFrames: [],
+    visualStylePrompt: '',
+    selectedArtStyleFrame: null,
+    selectedBackgroundFrame: null,
   });
 
   const handleAnalyzeVideo = useCallback(async () => {
@@ -91,6 +100,21 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
       });
       const result = await analyzeVideo(video.id);
       setAnalysis(result);
+      // Initialize visualStylePrompt from analysis
+      if (result.visualStyle) {
+        const visualStyleParts: string[] = [];
+        if (result.visualStyle.composition) {
+          visualStyleParts.push(`Composition: ${result.visualStyle.composition}`);
+        }
+        if (result.visualStyle.lighting) {
+          visualStyleParts.push(`Lighting: ${result.visualStyle.lighting}`);
+        }
+        if (result.visualStyle.dominantColors && result.visualStyle.dominantColors.length > 0) {
+          visualStyleParts.push(`Colors: ${result.visualStyle.dominantColors.join(', ')}`);
+        }
+        const visualStylePrompt = visualStyleParts.join('\n');
+        setFormData(prev => ({ ...prev, visualStylePrompt }));
+      }
       // Auto-select frames from suggested storyboard
       if (result.suggestedStoryboard?.scenes) {
         const frames = result.suggestedStoryboard.scenes
@@ -178,6 +202,9 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
         characterFiles: formData.characterFiles,
         aspectRatio: formData.aspectRatio,
         frameCount: formData.frameCount,
+        visualStylePrompt: formData.visualStylePrompt,
+        selectedArtStyleFrame: formData.selectedArtStyleFrame,
+        selectedBackgroundFrame: formData.selectedBackgroundFrame,
       });
     }
   }, [currentStep, analysis, extractedAssets, formData, video, onComplete]);
@@ -197,7 +224,7 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
       case 2:
         return !!analysis && !isAnalyzing; // Analysis must be complete
       case 3:
-        return formData.selectedFrames.length >= 2; // Need at least 2 frames
+        return formData.selectedArtStyleFrame !== null && formData.selectedBackgroundFrame !== null; // Need both frames selected
       case 4:
         return true; // Assets - optional
       case 5:
@@ -260,6 +287,10 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
             onFrameCountChange={(count) => setFormData(prev => ({ ...prev, frameCount: count }))}
             aspectRatio={formData.aspectRatio}
             onAspectRatioChange={(ratio) => setFormData(prev => ({ ...prev, aspectRatio: ratio }))}
+            selectedArtStyleFrame={formData.selectedArtStyleFrame}
+            selectedBackgroundFrame={formData.selectedBackgroundFrame}
+            onArtStyleFrameChange={(frame) => setFormData(prev => ({ ...prev, selectedArtStyleFrame: frame }))}
+            onBackgroundFrameChange={(frame) => setFormData(prev => ({ ...prev, selectedBackgroundFrame: frame }))}
           />
         </WizardStep>
 
@@ -274,6 +305,7 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
             formData={formData}
             onFormDataChange={setFormData}
             onExtract={handleExtractAssets}
+            analysis={analysis}
           />
         </WizardStep>
 

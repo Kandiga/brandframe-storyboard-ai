@@ -1,4 +1,4 @@
-import { YouTubeVideo, Comment, VideoStyleFilter, VideoStyle, SortBy, SearchFilters } from '../types';
+import { YouTubeVideo, Comment, VideoStyleFilter, VideoStyle, SortBy, SearchFilters, VideoCategory } from '../types';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger.js';
 import { getSupabaseUrl, getSupabaseAnonKey } from '../config/supabase';
 
@@ -79,6 +79,85 @@ export async function fetchVideoStyles(): Promise<VideoStyleFilter[]> {
   }
 }
 
+export async function fetchVideoCategories(regionCode: string = 'US'): Promise<VideoCategory[]> {
+  const startTime = Date.now();
+
+  try {
+    logDebug('Fetching video categories', {
+      category: 'API',
+      component: 'youtubeService',
+      action: 'fetch-categories',
+      regionCode,
+    });
+
+    const params = new URLSearchParams();
+    params.append('regionCode', regionCode);
+
+    const response = await fetch(`${getApiBaseUrl()}/video-categories?${params.toString()}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getSupabaseAnonKey()}`,
+      }
+    });
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      await response.text();
+      const error = new Error('Server returned non-JSON response');
+      logError('Invalid response content type', error, {
+        category: 'API',
+        component: 'youtubeService',
+        contentType: contentType || 'unknown',
+      });
+      throw error;
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorMessage = data?.error || 'Failed to fetch video categories';
+      const error = new Error(errorMessage);
+      logError('Failed to fetch video categories', error, {
+        category: 'API',
+        component: 'youtubeService',
+        status: response.status,
+      });
+      throw error;
+    }
+
+    if (!data.success) {
+      const error = new Error(data.error || 'Failed to fetch video categories');
+      logError('API returned unsuccessful response', error, {
+        category: 'API',
+        component: 'youtubeService',
+      });
+      throw error;
+    }
+
+    const duration = Date.now() - startTime;
+    const categories = data.categories || [];
+
+    logInfo('Video categories fetched successfully', {
+      category: 'API',
+      component: 'youtubeService',
+      action: 'fetch-categories',
+      categoriesCount: categories.length,
+      duration: `${duration}ms`,
+    });
+
+    return categories;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logError('Error fetching video categories', error, {
+      category: 'API',
+      component: 'youtubeService',
+      action: 'fetch-categories',
+      duration: `${duration}ms`,
+    });
+    throw error;
+  }
+}
+
 export async function fetchVideosByStyle(
   style: VideoStyle | 'all',
   query?: string,
@@ -101,6 +180,7 @@ export async function fetchVideosByStyle(
     if (filters?.sortBy) params.append('sortBy', filters.sortBy);
     if (filters?.minViews) params.append('minViews', filters.minViews.toString());
     if (filters?.minLikes) params.append('minLikes', filters.minLikes.toString());
+    if (filters?.categoryId) params.append('categoryId', filters.categoryId);
     params.append('limit', '20'); // Default limit
 
     const response = await fetch(`${getApiBaseUrl()}/search-by-style?${params.toString()}`, {
@@ -180,7 +260,7 @@ export async function fetchVideosByStyle(
   }
 }
 
-export async function fetchTrendingShorts(limit: number = 20, query?: string, style?: VideoStyle): Promise<YouTubeVideo[]> {
+export async function fetchTrendingShorts(limit: number = 20, query?: string, style?: VideoStyle, categoryId?: string): Promise<YouTubeVideo[]> {
   const startTime = Date.now();
 
   try {
@@ -196,6 +276,7 @@ export async function fetchTrendingShorts(limit: number = 20, query?: string, st
     params.append('limit', limit.toString());
     if (query) params.append('query', query);
     if (style) params.append('style', style);
+    if (categoryId) params.append('categoryId', categoryId);
     
     const response = await fetch(`${getApiBaseUrl()}/trending-shorts?${params.toString()}`, {
       headers: {

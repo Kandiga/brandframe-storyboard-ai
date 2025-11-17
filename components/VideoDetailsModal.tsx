@@ -6,9 +6,10 @@ interface VideoDetailsModalProps {
   video: YouTubeVideo;
   isOpen: boolean;
   onClose: () => void;
+  onCreateStoryboard?: (video: YouTubeVideo) => void;
 }
 
-const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({ video, isOpen, onClose }) => {
+const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({ video, isOpen, onClose, onCreateStoryboard }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
@@ -117,12 +118,12 @@ const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({ video, isOpen, on
                   <p className="text-gray-700 whitespace-pre-wrap">{video.description}</p>
                 </div>
               )}
-              <div className="mb-4">
+              <div className="mb-4 flex flex-col sm:flex-row gap-3">
                 <a
                   href={video.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="inline-flex items-center justify-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium px-4 py-2 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
                 >
                   Watch on YouTube
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,6 +135,20 @@ const VideoDetailsModal: React.FC<VideoDetailsModalProps> = ({ video, isOpen, on
                     />
                   </svg>
                 </a>
+                {onCreateStoryboard && (
+                  <button
+                    onClick={() => {
+                      onCreateStoryboard(video);
+                      onClose();
+                    }}
+                    className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors min-h-[44px]"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    Create Storyboard from Video
+                  </button>
+                )}
               </div>
             </div>
 

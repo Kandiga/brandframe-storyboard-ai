@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExtractedAssets } from '../../types';
+import { ExtractedAssets, VideoAnalysis } from '../../types';
 import { VideoWizardFormData } from '../VideoToStoryboardWizard';
 import ImageUpload from '../ImageUpload';
 
@@ -9,6 +9,7 @@ interface AssetsStepProps {
   formData: VideoWizardFormData;
   onFormDataChange: (data: VideoWizardFormData) => void;
   onExtract: () => void;
+  analysis: VideoAnalysis | null;
 }
 
 const AssetsStep: React.FC<AssetsStepProps> = ({
@@ -17,6 +18,7 @@ const AssetsStep: React.FC<AssetsStepProps> = ({
   formData,
   onFormDataChange,
   onExtract,
+  analysis,
 }) => {
   const handleLogoChange = (file: File | null) => {
     if (formData.logoPreview && formData.logoPreview.startsWith('blob:')) {
@@ -104,8 +106,35 @@ const AssetsStep: React.FC<AssetsStepProps> = ({
     }
   };
 
+  const handleVisualStylePromptChange = (value: string) => {
+    onFormDataChange({
+      ...formData,
+      visualStylePrompt: value,
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Visual Style Prompt Editor */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Visual Style Description</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Edit the visual style description that was extracted from the video analysis. This will be used to guide the storyboard generation.
+        </p>
+        <textarea
+          value={formData.visualStylePrompt}
+          onChange={(e) => handleVisualStylePromptChange(e.target.value)}
+          placeholder="Enter visual style description..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
+          rows={6}
+        />
+        {analysis && analysis.visualStyle && (
+          <p className="text-xs text-gray-500 mt-2">
+            Generated from: Composition, Lighting, and Colors analysis
+          </p>
+        )}
+      </div>
+
       {/* Extracted Assets */}
       {extractedAssets && (
         <div className="bg-white rounded-lg shadow-md p-6">

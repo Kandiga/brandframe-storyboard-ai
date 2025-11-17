@@ -235,6 +235,11 @@ export interface Comment {
   publishedAt: string;
 }
 
+export interface VideoCategory {
+  id: string;
+  title: string;
+}
+
 export type VideoStyle = 'shorts' | 'long-form' | 'tutorial' | 'review' | 'vlog' | 'music' | 'gaming' | 'educational' | 'entertainment';
 
 export interface VideoStyleFilter {

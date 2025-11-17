@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { YouTubeVideo, VideoStyle, VideoStyleFilter, SortBy } from '../types';
-import { fetchTrendingShorts, fetchVideoStyles, fetchVideosByStyle } from '../services/youtubeService';
+import { YouTubeVideo, VideoStyle, VideoStyleFilter, SortBy, VideoCategory } from '../types';
+import { fetchTrendingShorts, fetchVideoStyles, fetchVideosByStyle, fetchVideoCategories } from '../services/youtubeService';
 import VideoCard from './VideoCard';
 
 interface ViralShortsViewProps {
@@ -24,11 +24,14 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCrea
   const [videoStyle, setVideoStyle] = useState<VideoStyle | 'all'>('all');
   const [sortBy, setSortBy] = useState<SortBy>('views');
   const [videoStyles, setVideoStyles] = useState<VideoStyleFilter[]>([]);
+  const [videoCategories, setVideoCategories] = useState<VideoCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Load video styles on mount
+  // Load video styles and categories on mount
   useEffect(() => {
     fetchVideoStyles().then(setVideoStyles).catch(console.error);
+    fetchVideoCategories().then(setVideoCategories).catch(console.error);
   }, []);
 
   const loadVideos = async (query: string, addToHistory: boolean = true) => {
@@ -58,9 +61,13 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCrea
       let trendingVideos: YouTubeVideo[];
       
       if (videoStyle === 'all') {
-        trendingVideos = await fetchTrendingShorts(20, trimmedQuery);
+        trendingVideos = await fetchTrendingShorts(20, trimmedQuery, undefined, selectedCategoryId || undefined);
       } else {
-        trendingVideos = await fetchVideosByStyle(videoStyle, trimmedQuery, { sortBy });
+        const filters: any = { sortBy };
+        if (selectedCategoryId) {
+          filters.categoryId = selectedCategoryId;
+        }
+        trendingVideos = await fetchVideosByStyle(videoStyle, trimmedQuery, filters);
       }
       
       console.log(`[ViralShortsView] Search completed. Found ${trendingVideos.length} videos`);
@@ -120,6 +127,13 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCrea
 
   const handleSortChange = (sort: SortBy) => {
     setSortBy(sort);
+    if (activeQuery) {
+      loadVideos(activeQuery, false);
+    }
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
     if (activeQuery) {
       loadVideos(activeQuery, false);
     }
@@ -228,6 +242,20 @@ const ViralShortsView: React.FC<ViralShortsViewProps> = ({ onVideoSelect, onCrea
               {videoStyles.map((style) => (
                 <option key={style.style} value={style.style}>
                   {style.icon} {style.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Category Filter */}
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-base min-w-[150px]"
+            >
+              <option value="">All Categories</option>
+              {videoCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.title}
                 </option>
               ))}
             </select>

@@ -46,27 +46,93 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
         </div>
       </div>
 
-      {/* Selected Frames */}
+      {/* Selected Reference Frames */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">
-          Selected Frames ({selectedFrames.length}/{formData.frameCount})
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {selectedFrames.map((timestamp, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
-              <img
-                src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
-                alt={`Frame ${index + 1}`}
-                className="w-full h-24 object-cover"
-              />
-              <div className="p-2">
-                <p className="text-xs font-semibold text-gray-700">Frame {index + 1}</p>
-                <p className="text-xs text-gray-500">{formatTimestamp(timestamp)}</p>
-              </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Selected Reference Frames</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Art Style Frame */}
+          <div className="border-2 border-indigo-200 rounded-lg overflow-hidden bg-indigo-50">
+            <div className="p-3 bg-indigo-100">
+              <h4 className="text-sm font-semibold text-indigo-900">Art Style Reference</h4>
             </div>
-          ))}
+            {formData.selectedArtStyleFrame !== null ? (
+              <>
+                <img
+                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
+                  alt="Art Style Frame"
+                  className="w-full h-32 object-cover"
+                />
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-indigo-700">Selected</p>
+                  <p className="text-xs text-indigo-600">{formatTimestamp(formData.selectedArtStyleFrame)}</p>
+                </div>
+              </>
+            ) : (
+              <div className="p-4 text-center">
+                <p className="text-xs text-gray-500">Not selected</p>
+              </div>
+            )}
+          </div>
+
+          {/* Background Frame */}
+          <div className="border-2 border-green-200 rounded-lg overflow-hidden bg-green-50">
+            <div className="p-3 bg-green-100">
+              <h4 className="text-sm font-semibold text-green-900">Background Reference</h4>
+            </div>
+            {formData.selectedBackgroundFrame !== null ? (
+              <>
+                <img
+                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
+                  alt="Background Frame"
+                  className="w-full h-32 object-cover"
+                />
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-green-700">Selected</p>
+                  <p className="text-xs text-green-600">{formatTimestamp(formData.selectedBackgroundFrame)}</p>
+                </div>
+              </>
+            ) : (
+              <div className="p-4 text-center">
+                <p className="text-xs text-gray-500">Not selected</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Visual Style Prompt */}
+      {formData.visualStylePrompt && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Visual Style Description</h3>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{formData.visualStylePrompt}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Storyboard Frames */}
+      {selectedFrames.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">
+            Selected Storyboard Frames ({selectedFrames.length}/{formData.frameCount})
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {selectedFrames.map((timestamp, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                <img
+                  src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
+                  alt={`Frame ${index + 1}`}
+                  className="w-full h-24 object-cover"
+                />
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-gray-700">Frame {index + 1}</p>
+                  <p className="text-xs text-gray-500">{formatTimestamp(timestamp)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Settings */}
       <div className="bg-white rounded-lg shadow-md p-6">
