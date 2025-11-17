@@ -93,14 +93,17 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, onSelect, onCreateStoryboa
               Use as Inspiration
             </button>
           </div>
-          {onCreateStoryboard && (
-            <button
-              onClick={() => onCreateStoryboard(video)}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px]"
-            >
-              Create Storyboard
-            </button>
-          )}
+          <button
+            onClick={() => onCreateStoryboard?.(video)}
+            disabled={!onCreateStoryboard}
+            className={`w-full font-semibold py-2 px-4 rounded-lg transition-colors text-xs sm:text-sm min-h-[44px] ${
+              onCreateStoryboard
+                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+            }`}
+          >
+            Create Storyboard
+          </button>
         </div>
       </div>
       </div>

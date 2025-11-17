@@ -22,16 +22,22 @@ const VideoPreviewStep: React.FC<VideoPreviewStepProps> = ({ video }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Get thumbnail with fallback
+  const thumbnailUrl = video.thumbnail || (video as any).thumbnailUrl || 'https://via.placeholder.com/640x360?text=No+Thumbnail';
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="relative">
           <img
-            src={video.thumbnail}
+            src={thumbnailUrl}
             alt={video.title}
             className="w-full h-64 object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/640x360?text=No+Thumbnail';
+              const target = e.target as HTMLImageElement;
+              if (target.src !== 'https://via.placeholder.com/640x360?text=No+Thumbnail') {
+                target.src = 'https://via.placeholder.com/640x360?text=No+Thumbnail';
+              }
             }}
           />
           {video.duration && (

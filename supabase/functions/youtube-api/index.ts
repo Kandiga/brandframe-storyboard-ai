@@ -270,16 +270,21 @@ Deno.serve(async (req: Request) => {
       }
 
       const video = videosData.items[0];
+      const thumbnailUrl = video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default.url;
       const videoData = {
+        id: video.id,
         videoId: video.id,
         title: video.snippet.title,
         description: video.snippet.description,
-        thumbnailUrl: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default.url,
+        thumbnail: thumbnailUrl,
+        thumbnailUrl: thumbnailUrl,
+        channelName: video.snippet.channelTitle,
         channelTitle: video.snippet.channelTitle,
         viewCount: parseInt(video.statistics.viewCount || "0"),
         likeCount: parseInt(video.statistics.likeCount || "0"),
         commentCount: parseInt(video.statistics.commentCount || "0"),
-        duration: video.contentDetails.duration,
+        duration: parseDuration(video.contentDetails.duration),
+        url: `https://www.youtube.com/watch?v=${video.id}`,
       };
 
       return new Response(
