@@ -21,8 +21,25 @@ export async function validateImageQuality(imageUrl: string): Promise<ImageQuali
   const warnings: string[] = [];
   
   return new Promise((resolve) => {
-    // Check if it's a placeholder or error image
-    if (imageUrl.includes('placehold.co') || imageUrl.includes('Error') || imageUrl.includes('error')) {
+    // Check if imageUrl is valid
+    if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+      errors.push('Image URL is empty or invalid');
+      resolve({
+        isValid: false,
+        hasContent: false,
+        width: 0,
+        height: 0,
+        size: 0,
+        errors,
+        warnings
+      });
+      return;
+    }
+    
+    // Check if it's a placeholder or error image (only in URL, not in base64 data)
+    const urlLower = imageUrl.toLowerCase();
+    if (urlLower.includes('placehold.co') || 
+        (urlLower.includes('error') && !urlLower.startsWith('data:image'))) {
       errors.push('Image appears to be error placeholder');
       resolve({
         isValid: false,
@@ -112,16 +129,15 @@ export async function validateImageQuality(imageUrl: string): Promise<ImageQuali
 /**
  * Checks if an image URL is valid (not placeholder/error)
  */
-export function isImageUrlValid(imageUrl: string): boolean {
-  if (!imageUrl || typeof imageUrl !== 'string') {
+export function isImageUrlValid(imageUrl: string | undefined | null): boolean {
+  if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
     return false;
   }
   
-  // Check for error placeholders
-  if (imageUrl.includes('placehold.co') || 
-      imageUrl.includes('Error') || 
-      imageUrl.includes('error') ||
-      imageUrl.includes('failed')) {
+  // Check for error placeholders in the URL string itself (not in base64 data)
+  const urlLower = imageUrl.toLowerCase();
+  if (urlLower.includes('placehold.co') || 
+      (urlLower.includes('error') && !urlLower.startsWith('data:image'))) {
     return false;
   }
   
@@ -130,6 +146,14 @@ export function isImageUrlValid(imageUrl: string): boolean {
       imageUrl.startsWith('http://') || 
       imageUrl.startsWith('https://') ||
       imageUrl.startsWith('blob:')) {
+    // For data URLs, check if they have actual content (not just the prefix)
+    if (imageUrl.startsWith('data:image/')) {
+      const base64Part = imageUrl.split(',')[1];
+      if (!base64Part || base64Part.length < 100) {
+        // Base64 data is too short, likely corrupted or placeholder
+        return false;
+      }
+    }
     return true;
   }
   

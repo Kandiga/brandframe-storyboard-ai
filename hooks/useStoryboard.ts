@@ -372,6 +372,25 @@ export function useStoryboard(options: UseStoryboardOptions = {}) {
         progressCallback
       );
       
+      // Debug: Log new scenes structure to verify imageUrl is present
+      logDebug('New scenes received from continuation', {
+        category: 'GENERATION',
+        component: 'useStoryboard',
+        newScenesCount: newScenes.length,
+        scenes: newScenes.map(scene => ({
+          id: scene.id,
+          title: scene.title,
+          framesCount: scene.frames?.length || 0,
+          frames: scene.frames?.map(frame => ({
+            id: frame.id,
+            variant: frame.variant,
+            hasImageUrl: !!frame.imageUrl,
+            imageUrlLength: frame.imageUrl?.length || 0,
+            imageUrlPreview: frame.imageUrl?.substring(0, 50) || 'N/A'
+          })) || []
+        }))
+      });
+      
       // Merge new scenes with existing storyboard
       const updatedStoryboard: Storyboard = {
         ...existingStoryboard,
