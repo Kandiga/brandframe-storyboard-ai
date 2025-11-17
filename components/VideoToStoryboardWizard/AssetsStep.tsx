@@ -122,7 +122,7 @@ const AssetsStep: React.FC<AssetsStepProps> = ({
           Edit the visual style description that was extracted from the video analysis. This will be used to guide the storyboard generation.
         </p>
         <textarea
-          value={formData.visualStylePrompt}
+          value={formData.visualStylePrompt || ''}
           onChange={(e) => handleVisualStylePromptChange(e.target.value)}
           placeholder="Enter visual style description..."
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"

@@ -123,7 +123,7 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
             })}
           </div>
         )}
-        {selectedArtStyleFrame !== null && (
+        {selectedArtStyleFrame !== null && selectedArtStyleFrame !== undefined && (
           <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
             <p className="text-sm text-indigo-800">
               ✓ Art Style frame selected: {formatTimestamp(selectedArtStyleFrame)}
@@ -175,7 +175,7 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
             })}
           </div>
         )}
-        {selectedBackgroundFrame !== null && (
+        {selectedBackgroundFrame !== null && selectedBackgroundFrame !== undefined && (
           <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-800">
               ✓ Background frame selected: {formatTimestamp(selectedBackgroundFrame)}
@@ -201,7 +201,7 @@ const FrameSelectionStep: React.FC<FrameSelectionStepProps> = ({
         />
       </div>
 
-      {(!selectedArtStyleFrame || !selectedBackgroundFrame) && (
+      {(selectedArtStyleFrame === null || selectedArtStyleFrame === undefined || selectedBackgroundFrame === null || selectedBackgroundFrame === undefined) && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <p className="text-amber-800 text-sm">
             ⚠ Please select both an Art Style frame and a Background frame to continue.

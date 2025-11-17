@@ -224,7 +224,8 @@ const VideoToStoryboardWizard: React.FC<VideoToStoryboardWizardProps> = ({
       case 2:
         return !!analysis && !isAnalyzing; // Analysis must be complete
       case 3:
-        return formData.selectedArtStyleFrame !== null && formData.selectedBackgroundFrame !== null; // Need both frames selected
+        return formData.selectedArtStyleFrame !== null && formData.selectedArtStyleFrame !== undefined && 
+               formData.selectedBackgroundFrame !== null && formData.selectedBackgroundFrame !== undefined; // Need both frames selected
       case 4:
         return true; // Assets - optional
       case 5:

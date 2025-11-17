@@ -55,7 +55,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             <div className="p-3 bg-indigo-100">
               <h4 className="text-sm font-semibold text-indigo-900">Art Style Reference</h4>
             </div>
-            {formData.selectedArtStyleFrame !== null ? (
+            {formData.selectedArtStyleFrame !== null && formData.selectedArtStyleFrame !== undefined ? (
               <>
                 <img
                   src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
@@ -79,7 +79,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
             <div className="p-3 bg-green-100">
               <h4 className="text-sm font-semibold text-green-900">Background Reference</h4>
             </div>
-            {formData.selectedBackgroundFrame !== null ? (
+            {formData.selectedBackgroundFrame !== null && formData.selectedBackgroundFrame !== undefined ? (
               <>
                 <img
                   src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`}
@@ -101,7 +101,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({
       </div>
 
       {/* Visual Style Prompt */}
-      {formData.visualStylePrompt && (
+      {formData.visualStylePrompt && formData.visualStylePrompt.trim() !== '' && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Visual Style Description</h3>
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
