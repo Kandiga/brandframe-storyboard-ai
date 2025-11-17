@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI, Type, Modality } from "npm:@google/genai@1.29.0";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { extractDetailedVisualInfo, buildEnhancedConsistencyPrompt, DetailedVisualAnalysis } from "./enhanced-consistency.ts";
+import { extractDetailedVisualInfo, buildEnhancedConsistencyPrompt, DetailedVisualAnalysis, isValidCharacterAnalysis } from "./enhanced-consistency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -690,20 +690,53 @@ Deno.serve(async (req: Request) => {
 
     if (mainCharacter) {
       console.log('Extracting detailed character analysis...');
+      const analysisStartTime = Date.now();
       characterAnalysis = await extractDetailedVisualInfo(ai, mainCharacter, 'character');
-      console.log('Character analysis complete:', JSON.stringify(characterAnalysis));
+      const analysisDuration = Date.now() - analysisStartTime;
+      
+      const isValid = isValidCharacterAnalysis(characterAnalysis, 'character');
+      console.log(`Character analysis complete (${analysisDuration}ms):`, {
+        isValid,
+        hasClothing: characterAnalysis.character.clothing.length > 0,
+        clothingCount: characterAnalysis.character.clothing.length,
+        hasHairstyle: characterAnalysis.character.hairstyle !== 'Unknown',
+        hairstyle: characterAnalysis.character.hairstyle,
+        hasFacialFeatures: characterAnalysis.character.facialFeatures.length > 0,
+        facialFeaturesCount: characterAnalysis.character.facialFeatures.length,
+        hasBodyType: characterAnalysis.character.bodyType !== 'Unknown',
+        bodyType: characterAnalysis.character.bodyType,
+        fullAnalysis: JSON.stringify(characterAnalysis)
+      });
+      
+      if (!isValid) {
+        console.warn('WARNING: Character analysis returned invalid or incomplete data. Character image will be used directly in generation.');
+      }
     }
 
     if (backgroundAsset) {
       console.log('Extracting detailed background analysis...');
       backgroundAnalysis = await extractDetailedVisualInfo(ai, backgroundAsset, 'background');
-      console.log('Background analysis complete:', JSON.stringify(backgroundAnalysis));
+      const isValid = isValidCharacterAnalysis(backgroundAnalysis, 'background');
+      console.log('Background analysis complete:', {
+        isValid,
+        hasBackground: backgroundAnalysis.environment.background !== 'Unknown',
+        background: backgroundAnalysis.environment.background,
+        hasLighting: backgroundAnalysis.environment.lighting !== 'Unknown',
+        lighting: backgroundAnalysis.environment.lighting
+      });
     }
 
     if (artStyleAsset) {
       console.log('Extracting detailed art style analysis...');
       artStyleAnalysis = await extractDetailedVisualInfo(ai, artStyleAsset, 'art_style');
-      console.log('Art style analysis complete:', JSON.stringify(artStyleAnalysis));
+      const isValid = isValidCharacterAnalysis(artStyleAnalysis, 'art_style');
+      console.log('Art style analysis complete:', {
+        isValid,
+        hasBackground: artStyleAnalysis.environment.background !== 'Unknown',
+        hasLighting: artStyleAnalysis.environment.lighting !== 'Unknown',
+        lighting: artStyleAnalysis.environment.lighting,
+        colorPaletteCount: artStyleAnalysis.environment.colorPalette.length
+      });
     }
 
     let previousFrameImage: string | null = null;
@@ -711,6 +744,44 @@ Deno.serve(async (req: Request) => {
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       const imageGenParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+
+      // CRITICAL: Character reference MUST come first for maximum emphasis
+      if (mainCharacter) {
+        console.log(`[Scene ${scene.id}] Including main character image reference in generation`);
+        imageGenParts.push({
+          text: `[CRITICAL: MAIN CHARACTER REFERENCE - HIGHEST PRIORITY]
+═══════════════════════════════════════════════════════════
+THIS CHARACTER IMAGE IS YOUR PRIMARY REFERENCE. 
+YOU MUST MATCH THIS CHARACTER EXACTLY:
+- Same person, same face, same features
+- Same clothing, same colors, same style
+- Same hairstyle, same accessories
+- Same body type and proportions
+- PRESERVE ALL IDENTIFYING FEATURES - NO SUBSTITUTIONS ALLOWED
+═══════════════════════════════════════════════════════════`
+        });
+        imageGenParts.push({
+          inlineData: {
+            mimeType: mainCharacter.mimeType,
+            data: mainCharacter.data
+          }
+        });
+        imageGenParts.push({
+          text: `REMEMBER: The character in the generated image MUST be the EXACT SAME PERSON as shown in the reference image above. Match clothing, hairstyle, facial features, and body type precisely.`
+        });
+      }
+
+      additionalCharacterAssets.forEach((charAsset, idx) => {
+        imageGenParts.push({
+          text: `[CHARACTER ${idx + 2} REFERENCE - CRITICAL] This character MUST appear EXACTLY as shown. Preserve ALL identifying features - same person, same appearance:`
+        });
+        imageGenParts.push({
+          inlineData: {
+            mimeType: charAsset.mimeType,
+            data: charAsset.data
+          }
+        });
+      });
 
       if (artStyleAsset) {
         imageGenParts.push({
@@ -735,30 +806,6 @@ Deno.serve(async (req: Request) => {
           }
         });
       }
-
-      if (mainCharacter) {
-        imageGenParts.push({
-          text: `[MAIN CHARACTER REFERENCE] This character MUST appear EXACTLY as shown - preserve ALL identifying features:`
-        });
-        imageGenParts.push({
-          inlineData: {
-            mimeType: mainCharacter.mimeType,
-            data: mainCharacter.data
-          }
-        });
-      }
-
-      additionalCharacterAssets.forEach((charAsset, idx) => {
-        imageGenParts.push({
-          text: `[CHARACTER ${idx + 2} REFERENCE] Preserve character identity:`
-        });
-        imageGenParts.push({
-          inlineData: {
-            mimeType: charAsset.mimeType,
-            data: charAsset.data
-          }
-        });
-      });
 
       if (logoAsset) {
         imageGenParts.push({
@@ -809,8 +856,19 @@ Deno.serve(async (req: Request) => {
       const enhancedPrompt = buildEnhancedConsistencyPrompt(
         mergedAnalysis,
         `${frameIndicator}${scene.scriptLine}\n\n${scene.veoPrompt || scene.sceneContext || ''}`,
-        aspectRatio
+        aspectRatio,
+        !!mainCharacter // Pass whether we have a character image
       );
+      
+      // Log prompt building details
+      const hasValidCharData = mergedAnalysis.character.clothing.length > 0 ||
+        (mergedAnalysis.character.hairstyle && mergedAnalysis.character.hairstyle !== 'Unknown') ||
+        mergedAnalysis.character.facialFeatures.length > 0;
+      console.log(`[Scene ${scene.id}] Prompt built:`, {
+        hasCharacterImage: !!mainCharacter,
+        hasValidCharacterData,
+        usingImageReference: !!mainCharacter && !hasValidCharData
+      });
 
       imageGenParts.push({
         text: enhancedPrompt
@@ -835,6 +893,8 @@ Deno.serve(async (req: Request) => {
               const generatedImage = `data:${firstPart.inlineData.mimeType};base64,${firstPart.inlineData.data}`;
 
               if (enableConsistencyValidation && mainCharacter && supabase) {
+                console.log(`[Scene ${scene.id}${variant}] Validating consistency with character reference (attempt ${attempt + 1}/${maxRetries})...`);
+                const validationStartTime = Date.now();
                 const validation = await validateConsistency(
                   ai,
                   generatedImage,
@@ -845,19 +905,41 @@ Deno.serve(async (req: Request) => {
                   variant,
                   supabase
                 );
+                const validationDuration = Date.now() - validationStartTime;
+
+                console.log(`[Scene ${scene.id}${variant}] Consistency validation complete (${validationDuration}ms):`, {
+                  passed: validation.passed,
+                  overallScore: validation.overallScore,
+                  threshold: 85,
+                  characterIdentityScore: validation.characterIdentityScore,
+                  artStyleScore: validation.artStyleScore,
+                  colorPaletteScore: validation.colorPaletteScore,
+                  lightingScore: validation.lightingScore,
+                  compositionScore: validation.compositionScore,
+                  feedback: validation.feedback?.substring(0, 200) + (validation.feedback && validation.feedback.length > 200 ? '...' : '')
+                });
 
                 if (!validation.passed && attempt < maxRetries - 1) {
-                  console.log(`Frame ${scene.id}${variant} failed consistency (score: ${validation.overallScore}/100, threshold: 85), regenerating...`);
-                  console.log(`Consistency feedback: ${validation.feedback}`);
+                  console.warn(`[Scene ${scene.id}${variant}] CONSISTENCY CHECK FAILED (score: ${validation.overallScore}/100, threshold: 85)`);
+                  console.warn(`[Scene ${scene.id}${variant}] Regenerating frame due to consistency failure...`);
+                  console.warn(`[Scene ${scene.id}${variant}] Detailed feedback: ${validation.feedback}`);
                   totalRegenerations++;
                   continue;
+                }
+
+                if (validation.passed) {
+                  console.log(`[Scene ${scene.id}${variant}] ✓ Consistency check PASSED (score: ${validation.overallScore}/100)`);
+                } else {
+                  console.warn(`[Scene ${scene.id}${variant}] ⚠ Consistency check FAILED but max retries reached (score: ${validation.overallScore}/100)`);
                 }
 
                 if (variant === 'A') {
                   previousFrameImage = generatedImage;
                 }
-
-                console.log(`Frame ${scene.id}${variant} consistency: ${validation.overallScore}/100`);
+              } else if (mainCharacter && !enableConsistencyValidation) {
+                console.log(`[Scene ${scene.id}${variant}] Character image provided but consistency validation is disabled`);
+              } else if (!mainCharacter) {
+                console.log(`[Scene ${scene.id}${variant}] No character image provided, skipping consistency validation`);
               }
 
               return generatedImage;
@@ -906,6 +988,27 @@ Deno.serve(async (req: Request) => {
 
     const imagesDuration = Date.now() - imagesStartTime;
     const totalDuration = Date.now() - startTime;
+
+    // Log generation summary
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('STORYBOARD GENERATION COMPLETE');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('Generation Summary:', {
+      generationId,
+      totalDuration: `${totalDuration}ms`,
+      imagesDuration: `${imagesDuration}ms`,
+      scenesGenerated: scenes.length,
+      totalFrames: scenes.length * 2,
+      totalRegenerations,
+      hasCharacterImage: !!mainCharacter,
+      characterAnalysisValid: mainCharacter ? isValidCharacterAnalysis(characterAnalysis, 'character') : false,
+      consistencyValidationEnabled: enableConsistencyValidation,
+      hasBackground: !!backgroundAsset,
+      hasArtStyle: !!artStyleAsset,
+      hasLogo: !!logoAsset,
+      additionalCharactersCount: additionalCharacterAssets.length
+    });
+    console.log('═══════════════════════════════════════════════════════════');
 
     const storyboard = {
       title: "Generated Storyboard",
