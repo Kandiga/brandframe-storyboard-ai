@@ -184,7 +184,8 @@ export function buildEnhancedConsistencyPrompt(
   visualAnalysis: DetailedVisualAnalysis,
   sceneDescription: string,
   aspectRatio: string,
-  hasCharacterImage: boolean = false
+  hasCharacterImage: boolean = false,
+  customInstruction?: string
 ): string {
   // Check if character analysis data is valid or if we need to rely on image reference
   const hasValidCharacterData = visualAnalysis.character.clothing.length > 0 ||
@@ -262,9 +263,15 @@ YOU MUST MATCH THE CHARACTER IMAGE EXACTLY:
 [Note: No character reference provided. Generate character based on scene description.]`;
   }
 
+  // Add custom instruction section if provided
+  const customInstructionSection = customInstruction
+    ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in image generation.\nThe generated image MUST reflect and incorporate this instruction.\nEvery visual element, composition, and narrative element must align with this instruction.\n═══════════════════════════════════════════════════════════\n`
+    : '';
+
   return `Generate a professional cinematic ${aspectRatio} image with ABSOLUTE CONSISTENCY to these specifications:
 ${framePositionNote}
 ${cleanDescription}
+${customInstructionSection}
 
 ═══════════════════════════════════════════════════════════
 MANDATORY VISUAL CONSISTENCY REQUIREMENTS - DO NOT DEVIATE
