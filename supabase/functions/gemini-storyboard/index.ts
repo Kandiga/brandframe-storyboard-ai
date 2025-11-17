@@ -547,6 +547,10 @@ Deno.serve(async (req: Request) => {
 
     const mainCharacter = mainCharacterAsset || characterAsset || null;
     const sceneCount = [2, 4, 6, 8].includes(frameCount) ? frameCount / 2 : 2;
+    
+    // Initialize scenes array - will be populated either from continuation or script generation
+    let scenes: any[] = [];
+    let storyWorld: StoryWorld | null = null;
 
     if (supabase) {
       await supabase.from('generation_sessions').insert({
@@ -579,8 +583,9 @@ Deno.serve(async (req: Request) => {
     const ai = new GoogleGenAI({ apiKey });
 
     if (isContinue) {
+      console.log('Continuing narrative from existing storyboard...');
       const lastScene = existingStoryboard.scenes[existingStoryboard.scenes.length - 1];
-      const storyWorld = existingStoryboard.storyWorld || {
+      storyWorld = existingStoryboard.storyWorld || {
         premise: lastScene.scriptLine || 'Continuing narrative',
         theme: 'Narrative continuation',
         structure: {
@@ -602,7 +607,7 @@ Deno.serve(async (req: Request) => {
         }
       };
 
-      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nThe new scene MUST reflect and incorporate this instruction completely.\nEvery element (title, script line, actions, visuals) must align with this instruction.\n═══════════════════════════════════════════════════════════\n` : ''}\n\nGenerate exactly ONE scene with 2 frames (A and B variants) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\nRespond with JSON matching this structure:\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\",\n    \"frames\": [\n      { \"id\": \"${existingStoryboard.scenes.length + 1}A\", \"variant\": \"A\", \"imageUrl\": \"placeholder\", \"metadata\": {} },\n      { \"id\": \"${existingStoryboard.scenes.length + 1}B\", \"variant\": \"B\", \"imageUrl\": \"placeholder\", \"metadata\": {} }\n    ]\n  }]\n}`;
+      const continuationPrompt = `You are a MASTER SCREENPLAY ARCHITECT. Generate ONE new scene continuing from:\n\nLAST SCENE: \"${lastScene.title}\" - ${lastScene.scriptLine}\n${customInstruction ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\n[CRITICAL]: This custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nThe new scene MUST reflect and incorporate this instruction completely.\nEvery element (title, script line, actions, visuals) must align with this instruction.\n═══════════════════════════════════════════════════════════\n` : ''}\n\nGenerate exactly ONE scene with 2 frames (A and B variants) that continues this narrative. The scene should match the visual style and maintain character consistency.\n\nRespond with JSON matching this structure:\n{\n  \"scenes\": [{\n    \"id\": ${existingStoryboard.scenes.length + 1},\n    \"title\": \"Scene Title\",\n    \"scriptLine\": \"Dialogue or narration\",\n    \"emotion\": \"Emotional tone\",\n    \"intent\": \"Character intent\",\n    \"cinematographyFormat\": \"Camera and format details\",\n    \"subjectIdentity\": \"Character description\",\n    \"sceneContext\": \"Location description\",\n    \"action\": \"Character actions\",\n    \"cameraComposition\": \"Shot and camera details\",\n    \"styleAmbiance\": \"Visual style\",\n    \"audioDialogue\": \"Sound and dialogue\",\n    \"technicalNegative\": \"Quality negatives\",\n    \"veoPrompt\": \"Comprehensive prompt\"\n  }]\n}`;
 
       const contResponse = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
@@ -614,26 +619,44 @@ Deno.serve(async (req: Request) => {
 
       const responseText = contResponse.text || JSON.stringify(contResponse);
       const scriptData = JSON.parse(responseText);
-      const newScenes = scriptData.scenes || [];
+      let newScenes = scriptData.scenes || [];
+      
+      if (newScenes.length === 0) {
+        console.error('No scenes generated in continuation');
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to generate continuation scene. Please try again." 
+          }),
+          {
+            status: 500,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
 
-      return new Response(
-        JSON.stringify({ success: true, data: { scenes: newScenes } }),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // Continue with image generation for the new scene (same as regular generation)
+      console.log(`Generated ${newScenes.length} new scene(s) for continuation, now generating images...`);
+      
+      // Set scenes to the new scene for image generation loop
+      scenes = newScenes;
+      
+      // Skip story world and script generation for continuation - go directly to image generation
+      // Continue to image generation below (don't return early)
     }
 
-    if (supabase) {
-      await supabase.from('generation_sessions')
-        .update({ status: 'story_world' })
-        .eq('id', generationId);
-    }
+    // Only generate story world and script if NOT continuing
+    if (!isContinue) {
+      if (supabase) {
+        await supabase.from('generation_sessions')
+          .update({ status: 'story_world' })
+          .eq('id', generationId);
+      }
 
-    const storyWorldStartTime = Date.now();
+      const storyWorldStartTime = Date.now();
     const customInstructionSection = customInstruction 
       ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\nThis custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY over the base story description.\nIntegrate this instruction into EVERY aspect of the Story-World.\n═══════════════════════════════════════════════════════════\n`
       : '';
@@ -656,83 +679,102 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const swText = storyWorldResponse.text || JSON.stringify(storyWorldResponse);
-    const storyWorld = JSON.parse(swText) as StoryWorld;
-    const storyWorldDuration = Date.now() - storyWorldStartTime;
+      const swText = storyWorldResponse.text || JSON.stringify(storyWorldResponse);
+      storyWorld = JSON.parse(swText) as StoryWorld;
+      const storyWorldDuration = Date.now() - storyWorldStartTime;
 
-    if (supabase) {
-      await logAgentDecision(
-        supabase,
-        generationId,
-        'story_architect',
-        'story_world_creation',
-        { story },
-        storyWorld,
-        'Generated comprehensive Story-World blueprint using professional screenplay architecture principles',
-        95,
-        storyWorldDuration
-      );
+      if (supabase) {
+        await logAgentDecision(
+          supabase,
+          generationId,
+          'story_architect',
+          'story_world_creation',
+          { story },
+          storyWorld,
+          'Generated comprehensive Story-World blueprint using professional screenplay architecture principles',
+          95,
+          storyWorldDuration
+        );
 
-      await supabase.from('generation_sessions')
-        .update({
-          status: 'script',
-          story_world_duration_ms: storyWorldDuration
-        })
-        .eq('id', generationId);
+        await supabase.from('generation_sessions')
+          .update({
+            status: 'script',
+            story_world_duration_ms: storyWorldDuration
+          })
+          .eq('id', generationId);
+      }
+
+      const scriptStartTime = Date.now();
+      const customInstructionScriptSection = customInstruction
+        ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\nThis custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nEVERY scene must incorporate and reflect this instruction.\n═══════════════════════════════════════════════════════════\n`
+        : '';
+      
+      const enhancedScriptPrompt = PROFESSIONAL_SCRIPT_PROMPT
+        .replace('{STORY_WORLD}', JSON.stringify(storyWorld))
+        .replace('{SCENE_COUNT}', sceneCount.toString())
+        .replace('{CUSTOM_INSTRUCTION}', customInstructionScriptSection);
+
+      console.log('Generating Script:', {
+        hasCustomInstruction: !!customInstruction,
+        customInstructionLength: customInstruction?.length || 0,
+        sceneCount
+      });
+
+      const scriptResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: enhancedScriptPrompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      const scriptText = scriptResponse.text || JSON.stringify(scriptResponse);
+      const scriptData = JSON.parse(scriptText);
+      scenes = scriptData.scenes || [];
+      const scriptDuration = Date.now() - scriptStartTime;
+
+      if (scenes.length > sceneCount) {
+        scenes = scenes.slice(0, sceneCount);
+      }
+
+      if (supabase) {
+        await logAgentDecision(
+          supabase,
+          generationId,
+          'story_architect',
+          'scene_generation',
+          { sceneCount, storyWorld },
+          { scenesGenerated: scenes.length },
+          `Generated ${scenes.length} professional scenes with Level 9 broadcast quality specifications`,
+          90,
+          scriptDuration
+        );
+
+        await supabase.from('generation_sessions')
+          .update({
+            status: 'images',
+            script_duration_ms: scriptDuration
+          })
+          .eq('id', generationId);
+      }
     }
 
-    const scriptStartTime = Date.now();
-    const customInstructionScriptSection = customInstruction
-      ? `\n\n═══════════════════════════════════════════════════════════\n🎯 USER'S CUSTOM INSTRUCTION (HIGHEST PRIORITY):\n═══════════════════════════════════════════════════════════\n"${customInstruction}"\n═══════════════════════════════════════════════════════════\n\nThis custom instruction is the USER'S SPECIFIC CREATIVE DIRECTION.\nIt MUST take ABSOLUTE PRIORITY in scene generation.\nEVERY scene must incorporate and reflect this instruction.\n═══════════════════════════════════════════════════════════\n`
-      : '';
-    
-    const enhancedScriptPrompt = PROFESSIONAL_SCRIPT_PROMPT
-      .replace('{STORY_WORLD}', JSON.stringify(storyWorld))
-      .replace('{SCENE_COUNT}', sceneCount.toString())
-      .replace('{CUSTOM_INSTRUCTION}', customInstructionScriptSection);
-
-    console.log('Generating Script:', {
-      hasCustomInstruction: !!customInstruction,
-      customInstructionLength: customInstruction?.length || 0,
-      sceneCount
-    });
-
-    const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: enhancedScriptPrompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const scriptText = scriptResponse.text || JSON.stringify(scriptResponse);
-    const scriptData = JSON.parse(scriptText);
-    let scenes = scriptData.scenes || [];
-    const scriptDuration = Date.now() - scriptStartTime;
-
-    if (scenes.length > sceneCount) {
-      scenes = scenes.slice(0, sceneCount);
-    }
-
-    if (supabase) {
-      await logAgentDecision(
-        supabase,
-        generationId,
-        'story_architect',
-        'scene_generation',
-        { sceneCount, storyWorld },
-        { scenesGenerated: scenes.length },
-        `Generated ${scenes.length} professional scenes with Level 9 broadcast quality specifications`,
-        90,
-        scriptDuration
+    // Initialize scenes array if not already set (shouldn't happen, but safety check)
+    if (!scenes || scenes.length === 0) {
+      console.error('No scenes available for image generation');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "No scenes available for image generation. Please try again." 
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
       );
-
-      await supabase.from('generation_sessions')
-        .update({
-          status: 'images',
-          script_duration_ms: scriptDuration
-        })
-        .eq('id', generationId);
     }
 
     const imagesStartTime = Date.now();
@@ -1103,10 +1145,11 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
 
     // Log generation summary
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('STORYBOARD GENERATION COMPLETE');
+    console.log(isContinue ? 'NARRATIVE CONTINUATION COMPLETE' : 'STORYBOARD GENERATION COMPLETE');
     console.log('═══════════════════════════════════════════════════════════');
     console.log('Generation Summary:', {
       generationId,
+      isContinue,
       totalDuration: `${totalDuration}ms`,
       imagesDuration: `${imagesDuration}ms`,
       scenesGenerated: scenes.length,
@@ -1118,10 +1161,48 @@ YOU MUST MATCH THIS CHARACTER EXACTLY:
       hasBackground: !!backgroundAsset,
       hasArtStyle: !!artStyleAsset,
       hasLogo: !!logoAsset,
-      additionalCharactersCount: additionalCharacterAssets.length
+      additionalCharactersCount: additionalCharacterAssets.length,
+      hasCustomInstruction: !!customInstruction
     });
     console.log('═══════════════════════════════════════════════════════════');
 
+    // For continuation, return only the new scenes
+    if (isContinue) {
+      if (supabase) {
+        await supabase.from('generation_sessions')
+          .update({
+            status: 'completed',
+            images_duration_ms: imagesDuration,
+            total_duration_ms: totalDuration,
+            regeneration_count: totalRegenerations,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', generationId);
+      }
+
+      console.log(`Narrative continuation complete: ${scenes.length} new scene(s), ${totalRegenerations} regenerations, ${totalDuration}ms total`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: { scenes: scenes }, // Return only new scenes for continuation
+          metadata: {
+            generationId,
+            totalDuration,
+            regenerations: totalRegenerations,
+            isContinuation: true
+          }
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    // For regular generation, return full storyboard
     const storyboard = {
       title: "Generated Storyboard",
       scenes,
