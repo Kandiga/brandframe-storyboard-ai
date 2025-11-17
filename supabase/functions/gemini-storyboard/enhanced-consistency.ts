@@ -25,11 +25,38 @@ export interface DetailedVisualAnalysis {
   };
 }
 
+/**
+ * Validates if character analysis contains valid data
+ */
+export function isValidCharacterAnalysis(analysis: DetailedVisualAnalysis | null, imageType: 'character' | 'background' | 'art_style'): boolean {
+  if (!analysis) return false;
+  
+  if (imageType === 'character') {
+    // For character analysis, check if we have meaningful character data
+    const hasValidClothing = analysis.character.clothing.length > 0;
+    const hasValidHairstyle = analysis.character.hairstyle && analysis.character.hairstyle !== 'Unknown';
+    const hasValidFacialFeatures = analysis.character.facialFeatures.length > 0;
+    const hasValidBodyType = analysis.character.bodyType && analysis.character.bodyType !== 'Unknown';
+    
+    // At least 2 of these should be valid for a good character analysis
+    const validCount = [hasValidClothing, hasValidHairstyle, hasValidFacialFeatures, hasValidBodyType].filter(Boolean).length;
+    return validCount >= 2;
+  }
+  
+  // For background/art_style, check environment data
+  const hasValidBackground = analysis.environment.background && analysis.environment.background !== 'Unknown';
+  const hasValidLighting = analysis.environment.lighting && analysis.environment.lighting !== 'Unknown';
+  
+  return hasValidBackground || hasValidLighting;
+}
+
 export async function extractDetailedVisualInfo(
   ai: any,
   imageAsset: { mimeType: string; data: string },
-  imageType: 'character' | 'background' | 'art_style'
+  imageType: 'character' | 'background' | 'art_style',
+  retryCount: number = 0
 ): Promise<DetailedVisualAnalysis> {
+  const maxRetries = 2;
   const analysisPrompt = `You are a FORENSIC VISUAL ANALYST. Analyze this image with EXTREME DETAIL.
 
 Extract ALL visual information:
@@ -95,9 +122,38 @@ Respond with ONLY valid JSON:
     });
 
     const analysisText = response.text || JSON.stringify(response);
-    return JSON.parse(analysisText);
+    const analysis = JSON.parse(analysisText);
+    
+    // Validate the analysis result
+    if (!isValidCharacterAnalysis(analysis, imageType) && retryCount < maxRetries) {
+      console.warn(`Character analysis returned invalid data (attempt ${retryCount + 1}/${maxRetries + 1}), retrying...`, {
+        imageType,
+        characterData: {
+          clothingCount: analysis.character?.clothing?.length || 0,
+          hairstyle: analysis.character?.hairstyle,
+          facialFeaturesCount: analysis.character?.facialFeatures?.length || 0,
+          bodyType: analysis.character?.bodyType
+        }
+      });
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      return extractDetailedVisualInfo(ai, imageAsset, imageType, retryCount + 1);
+    }
+    
+    return analysis;
   } catch (error) {
-    console.error('Failed to extract detailed visual info:', error);
+    console.error(`Failed to extract detailed visual info (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+    
+    // Retry on error if we haven't exceeded max retries
+    if (retryCount < maxRetries) {
+      console.log(`Retrying character analysis (attempt ${retryCount + 2}/${maxRetries + 1})...`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      return extractDetailedVisualInfo(ai, imageAsset, imageType, retryCount + 1);
+    }
+    
+    // Return fallback data after all retries exhausted
+    console.error(`All retry attempts exhausted for ${imageType} analysis, returning fallback data`);
     return {
       character: {
         clothing: [],
@@ -127,8 +183,15 @@ Respond with ONLY valid JSON:
 export function buildEnhancedConsistencyPrompt(
   visualAnalysis: DetailedVisualAnalysis,
   sceneDescription: string,
-  aspectRatio: string
+  aspectRatio: string,
+  hasCharacterImage: boolean = false
 ): string {
+  // Check if character analysis data is valid or if we need to rely on image reference
+  const hasValidCharacterData = visualAnalysis.character.clothing.length > 0 ||
+    (visualAnalysis.character.hairstyle && visualAnalysis.character.hairstyle !== 'Unknown') ||
+    visualAnalysis.character.facialFeatures.length > 0 ||
+    (visualAnalysis.character.bodyType && visualAnalysis.character.bodyType !== 'Unknown');
+  
   const clothingList = visualAnalysis.character.clothing.join(', ');
   const accessoriesList = visualAnalysis.character.accessories.length > 0
     ? visualAnalysis.character.accessories.join(', ')
@@ -153,6 +216,52 @@ export function buildEnhancedConsistencyPrompt(
     framePositionNote = '\n[FRAME POSITION: LAST FRAME - CLOSING SHOT]\nThis is the closing frame. Provide resolution, emotional closure, memorable final image.\n';
   }
 
+  // Build character consistency section based on data availability
+  let characterConsistencySection = '';
+  if (hasValidCharacterData) {
+    // We have valid analysis data, use it
+    characterConsistencySection = `## CHARACTER CONSISTENCY (CRITICAL - MUST MATCH EXACTLY):
+✓ CLOTHING (EXACT MATCH REQUIRED):
+  ${clothingList || 'See character reference image above'}
+  [CRITICAL: Character MUST wear these EXACT items. NO substitutions allowed]
+
+✓ ACCESSORIES (EXACT MATCH REQUIRED):
+  ${accessoriesList}
+  [CRITICAL: Include ONLY these accessories. Nothing more, nothing less]
+
+✓ HAIRSTYLE (EXACT MATCH REQUIRED):
+  ${visualAnalysis.character.hairstyle !== 'Unknown' ? visualAnalysis.character.hairstyle : 'See character reference image above'}
+  [CRITICAL: Hair must look IDENTICAL - same length, color, style]
+
+✓ FACIAL FEATURES (EXACT MATCH REQUIRED):
+  ${visualAnalysis.character.facialFeatures.length > 0 ? visualAnalysis.character.facialFeatures.join(', ') : 'See character reference image above'}
+  [CRITICAL: Face MUST be identical. Same person, same features]
+
+✓ BODY TYPE & POSE:
+  ${visualAnalysis.character.bodyType !== 'Unknown' ? `${visualAnalysis.character.bodyType} - ${visualAnalysis.character.pose}` : 'See character reference image above'}
+  [CRITICAL: Same body proportions and general posture]`;
+  } else if (hasCharacterImage) {
+    // No valid analysis data, but we have character image - emphasize using it directly
+    characterConsistencySection = `## CHARACTER CONSISTENCY (CRITICAL - MUST MATCH EXACTLY):
+⚠️ CHARACTER ANALYSIS DATA UNAVAILABLE - USING DIRECT IMAGE REFERENCE
+
+[CRITICAL INSTRUCTION]: The character reference image provided above is your PRIMARY and ONLY source for character appearance.
+
+YOU MUST MATCH THE CHARACTER IMAGE EXACTLY:
+✓ CLOTHING: Match EXACTLY what the character is wearing in the reference image
+✓ ACCESSORIES: Include ALL accessories visible in the reference image
+✓ HAIRSTYLE: Match the EXACT hairstyle (length, color, style, texture) from the reference
+✓ FACIAL FEATURES: The face MUST be the EXACT SAME PERSON - same eyes, nose, face shape, features
+✓ BODY TYPE: Match the EXACT body proportions, build, and posture from the reference
+✓ POSE: While pose may vary, all other features MUST remain identical
+
+[CRITICAL]: Look at the character reference image carefully. Every detail matters. The generated character MUST be recognizable as the SAME PERSON with the SAME appearance.`;
+  } else {
+    // No character image and no data - minimal instructions
+    characterConsistencySection = `## CHARACTER CONSISTENCY:
+[Note: No character reference provided. Generate character based on scene description.]`;
+  }
+
   return `Generate a professional cinematic ${aspectRatio} image with ABSOLUTE CONSISTENCY to these specifications:
 ${framePositionNote}
 ${cleanDescription}
@@ -161,26 +270,7 @@ ${cleanDescription}
 MANDATORY VISUAL CONSISTENCY REQUIREMENTS - DO NOT DEVIATE
 ═══════════════════════════════════════════════════════════
 
-## CHARACTER CONSISTENCY (CRITICAL - MUST MATCH EXACTLY):
-✓ CLOTHING (EXACT MATCH REQUIRED):
-  ${clothingList}
-  [CRITICAL: Character MUST wear these EXACT items. NO substitutions allowed]
-
-✓ ACCESSORIES (EXACT MATCH REQUIRED):
-  ${accessoriesList}
-  [CRITICAL: Include ONLY these accessories. Nothing more, nothing less]
-
-✓ HAIRSTYLE (EXACT MATCH REQUIRED):
-  ${visualAnalysis.character.hairstyle}
-  [CRITICAL: Hair must look IDENTICAL - same length, color, style]
-
-✓ FACIAL FEATURES (EXACT MATCH REQUIRED):
-  ${visualAnalysis.character.facialFeatures.join(', ')}
-  [CRITICAL: Face MUST be identical. Same person, same features]
-
-✓ BODY TYPE & POSE:
-  ${visualAnalysis.character.bodyType} - ${visualAnalysis.character.pose}
-  [CRITICAL: Same body proportions and general posture]
+${characterConsistencySection}
 
 ## ENVIRONMENT CONSISTENCY (CRITICAL - MUST MATCH EXACTLY):
 ✓ BACKGROUND (EXACT MATCH REQUIRED):
