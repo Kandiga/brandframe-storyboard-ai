@@ -45,8 +45,20 @@ const FrameCard: React.FC<{ frame: Frame; sceneTitle: string; sceneId: number; a
   const [isValidating, setIsValidating] = useState(true);
   
   useEffect(() => {
+    // Reset state when frame changes
+    setImageError(false);
+    setIsValidating(true);
+    
+    // Check if imageUrl exists and is not empty
+    if (!frame.imageUrl || frame.imageUrl.trim() === '') {
+      console.warn(`[Frame ${frame.id}] Image URL is empty or missing`);
+      setImageError(true);
+      setIsValidating(false);
+      return;
+    }
+    
     // Validate image quality when component mounts
-    if (frame.imageUrl && isImageUrlValid(frame.imageUrl)) {
+    if (isImageUrlValid(frame.imageUrl)) {
       validateImageQuality(frame.imageUrl)
         .then((check) => {
           if (!check.isValid) {
@@ -55,14 +67,15 @@ const FrameCard: React.FC<{ frame: Frame; sceneTitle: string; sceneId: number; a
           }
           setIsValidating(false);
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error(`[Frame ${frame.id}] Image validation error:`, error);
           setIsValidating(false);
+          // Don't set error immediately - let the img onError handle it
         });
     } else {
+      console.warn(`[Frame ${frame.id}] Image URL is invalid:`, frame.imageUrl?.substring(0, 100));
       setIsValidating(false);
-      if (!isImageUrlValid(frame.imageUrl)) {
-        setImageError(true);
-      }
+      setImageError(true);
     }
   }, [frame.imageUrl, frame.id]);
   
@@ -98,13 +111,30 @@ const FrameCard: React.FC<{ frame: Frame; sceneTitle: string; sceneId: number; a
                 <p className="text-sm font-medium text-center">Image failed to load</p>
                 <p className="text-xs text-center mt-1">Frame {frame.variant}</p>
               </div>
-            ) : (
+            ) : frame.imageUrl ? (
               <img 
                 src={frame.imageUrl} 
                 alt={`${sceneTitle}: Frame ${frame.variant}`} 
                 className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
+                onError={(e) => {
+                  console.error(`[Frame ${frame.id}] Image load error:`, e);
+                  setImageError(true);
+                }}
+                onLoad={() => {
+                  // Image loaded successfully
+                  if (isValidating) {
+                    setIsValidating(false);
+                  }
+                }}
               />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 p-4">
+                <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-medium text-center">Image URL missing</p>
+                <p className="text-xs text-center mt-1">Frame {frame.variant}</p>
+              </div>
             )}
             {/* Download button overlay */}
             {!imageError && !isValidating && (
